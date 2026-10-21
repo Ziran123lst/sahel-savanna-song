@@ -526,38 +526,35 @@
     World._wellBucket = bucket;
   }
 
-  /* ============ 牛群 ============ */
-  function makeCattle(scene, rng) {
+  /* ============ 牲畜（真实 GLB 模型） ============ */
+  /* 牛 / 公牛 / 山羊 / 绵羊 / 骆驼 / 鸡，散布在牧民营地与水塘周边 */
+  function placeAnimals(scene) {
     const g = new THREE.Group();
-    const bodyMat = new THREE.MeshLambertMaterial({ color: 0xd8cdb8 });
-    const hornMat = new THREE.MeshLambertMaterial({ color: 0xe8dcc0 });
-    for (let i = 0; i < 14; i++) {
-      const c = new THREE.Group();
-      const body = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.9, 0.75), bodyMat);
-      body.position.y = 1.0; body.castShadow = true;
-      const head = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.5, 0.45), bodyMat);
-      head.position.set(0.95, 1.15, 0);
-      const h1 = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.55, 5), hornMat);
-      h1.position.set(1.15, 1.5, 0.16); h1.rotation.z = -0.5;
-      const h2 = h1.clone(); h2.position.z = -0.16;
-      const legs = new THREE.Group();
-      for (let k = 0; k < 4; k++) {
-        const leg = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.9, 0.16), bodyMat);
-        leg.position.set(k < 2 ? 0.5 : -0.5, 0.45, k % 2 ? 0.28 : -0.28);
-        legs.add(leg);
+    const defs = [
+      ['vendor/models/cow.glb',    4, 108,  -58, 18, 1.00],
+      ['vendor/models/bull.glb',   1, 108,  -58, 12, 1.15],
+      ['vendor/models/goat.glb',   4, 120,  -74, 12, 1.00],
+      ['vendor/models/sheep.glb',  5, 126, -110, 16, 1.00],
+      ['vendor/models/camel.glb',  2, 132, -124, 14, 1.00],
+      ['vendor/models/chicken.glb', 7, 100,  -50, 10, 1.60]
+    ];
+    defs.forEach(([path, count, cx, cz, rad, sc]) => {
+      for (let i = 0; i < count; i++) {
+        const inst = S.Models.instance(path);
+        if (!inst) continue;
+        const m = inst.scene;
+        m.scale.setScalar(sc);
+        m.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; o.frustumCulled = true; } });
+        const ang = Math.random() * 6.283, rr = rad * (0.25 + Math.random() * 0.75);
+        const x = cx + Math.cos(ang) * rr, z = cz + Math.sin(ang) * rr;
+        m.position.set(x, heightAt(x, z), z);
+        m.rotation.y = Math.random() * 6.283;
+        m.userData.phase = Math.random() * 6.283;
+        g.add(m);
       }
-      const hump = new THREE.Mesh(new THREE.SphereGeometry(0.34, 8, 6), bodyMat);
-      hump.position.set(0.25, 1.5, 0);
-      c.add(body, head, h1, h2, legs, hump);
-      const ang = rng() * 6.28, rad = 8 + rng() * 22;
-      const x = 108 + Math.cos(ang) * rad, z = -58 + Math.sin(ang) * rad;
-      c.position.set(x, heightAt(x, z), z);
-      c.rotation.y = rng() * 6.28;
-      c.userData.phase = rng() * 6.28;
-      g.add(c);
-    }
+    });
     scene.add(g);
-    World._cattle = g;
+    World._animals = g;
   }
 
   /* ============ 沙尘粒子 ============ */
@@ -591,7 +588,7 @@
       ['正在铺开草丛与砾石…', () => { placeGroundCover(this.scene, rng); }],
       ['正在砌起泥砖的村庄…', () => { makeBuildings(this.scene, rng); }],
       ['正在打一口老井…', () => { makeWell(this.scene); }],
-      ['正在赶来牛群…', () => { makeCattle(this.scene, rng); }],
+      ['正在赶来牛群…', () => { placeAnimals(this.scene); }],
       ['正在起风…', () => { makeDust(this.scene); }]
     ];
     let i = 0;
@@ -740,9 +737,9 @@
       }
     }
 
-    // 牛群缓慢移动
-    if (this._cattle) {
-      for (const c of this._cattle.children) {
+    // 牲畜缓慢移动
+    if (this._animals) {
+      for (const c of this._animals.children) {
         c.userData.phase += dt * 0.25;
         c.position.y = heightAt(c.position.x, c.position.z);
         c.rotation.y += Math.sin(c.userData.phase) * dt * 0.12;

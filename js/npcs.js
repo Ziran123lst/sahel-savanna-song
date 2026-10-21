@@ -102,15 +102,64 @@
     return g;
   }
 
+  /* 每个 NPC 使用的 GLB 角色（来自 Poly Pizza / Quaternius，CC0）。
+   * 女性统一用 woman，男性用 farmer / adventurer 两类以增加多样性。 */
+  const MODEL_KEYS = {
+    aicha: 'woman', fatima: 'woman', aminata: 'woman', awa: 'woman',
+    brahime: 'woman', halima: 'woman', kadi: 'woman', fatou: 'woman',
+    moussa: 'farmer', boubacar: 'farmer', souleymane: 'farmer',
+    issa: 'adventurer', idrissa: 'adventurer'
+  };
+  const TARGET_H = 1.9;   // 角色目标身高（米），与方块人一致
+
+  // 从已预加载的 GLB 克隆一个可独立动画的角色；失败返回 null
+  function buildGLBPerson(spec, rng) {
+    if (!window.SkeletonUtils || !S.Models) return null;
+    const key = MODEL_KEYS[spec.id] || 'farmer';
+    const gltf = S.Models.get('vendor/models/' + key + '.glb');
+    if (!gltf) return null;
+    let g;
+    try {
+      g = window.SkeletonUtils.clone(gltf.scene);
+    } catch (e) {
+      console.warn('[NPCs] 骨骼克隆失败，降级方块人：', spec.id, e);
+      return null;
+    }
+    // 归一化到目标身高，并把脚底对齐到本地 y=0
+    const box = new THREE.Box3().setFromObject(g);
+    const size = new THREE.Vector3(); box.getSize(size);
+    const s = TARGET_H / (size.y || TARGET_H);
+    g.scale.setScalar(s * (0.94 + (rng() - 0.5) * 0.1));
+    const box2 = new THREE.Box3().setFromObject(g);
+    g.position.y = -box2.min.y;
+
+    // 播放 Idle 动画
+    let mixer = null;
+    if (gltf.animations && gltf.animations.length) {
+      mixer = new THREE.AnimationMixer(g);
+      const idle = gltf.animations.find(a => /idle/i.test(a.name)) || gltf.animations[0];
+      mixer.clipAction(idle).play();
+    }
+    g.userData.mixer = mixer;
+    g.userData.h = 0.94;
+    return g;
+  }
+
   NPCs.create = function (scene) {
     const rng = S.makeRng(777);
     for (const spec of S.NPCS) {
       // 避开建筑
       const c = S.World.collide(spec.x, spec.z, 0.7);
       const cl = S.World.clampToWorld(c.x, c.z);
-      const g = buildPerson(spec, rng);
+
+      let g = buildGLBPerson(spec, rng);
+      let fromGLB = !!g;
+      if (!g) g = buildPerson(spec, rng);   // 模型缺失时降级
+
       const y = heightAt(cl.x, cl.z);
-      g.position.set(cl.x, y, cl.z);
+      g.position.x = cl.x;
+      g.position.z = cl.z;
+      g.position.y += y;                     // 脚底落到地面
       g.rotation.y = Math.atan2(0 - cl.x, 0 - cl.z) + (rng() - 0.5) * 0.6;
 
       const label = makeLabel(spec.name, spec.role);
@@ -126,7 +175,7 @@
       g.add(mk);
 
       scene.add(g);
-      const sitting = (spec.id === 'aicha');
+      const sitting = (spec.id === 'aicha') && !fromGLB;
       if (sitting) {
         g.userData.parts.legL.rotation.x = -1.35;
         g.userData.parts.legR.rotation.x = -1.35;
@@ -137,6 +186,7 @@
         x: cl.x, z: cl.z,
         phase: rng() * 6.28,
         sitting,
+        mixer: g.userData.mixer || null,
         baseY: g.position.y
       });
     }
@@ -159,16 +209,20 @@
   NPCs.update = function (dt, playerPos, interactEnabled) {
     for (const n of NPCs.list) {
       n.phase += dt * 0.9;
-      const p = n.group.userData.parts;
+      const p = n.group.userData.parts;          // GLB 角色无此字段
       const near = Math.sqrt(dist2(playerPos.x, playerPos.z, n.x, n.z)) < 3.6;
       n.marker.visible = near && !!interactEnabled;
       n.marker.rotation.y += dt * 2.2;
       n.marker.position.y = 2.15 * n.group.userData.h + Math.sin(n.phase * 2) * 0.14;
-      if (!n.sitting) {
+      if (p && !n.sitting) {
+        // 方块人：手臂/躯干轻微摆动
         const sw = Math.sin(n.phase * 0.55) * 0.05;
         p.armL.rotation.x = sw;
         p.armR.rotation.x = -sw;
         p.torso.rotation.y = Math.sin(n.phase * 0.35) * 0.10;
+      } else if (n.mixer) {
+        // GLB 角色：推进 Idle 动画
+        n.mixer.update(dt);
       }
       // 面向玩家（近距离）
       if (near) {
@@ -177,7 +231,6 @@
         while (d > Math.PI) d -= Math.PI * 2;
         while (d < -Math.PI) d += Math.PI * 2;
         n.group.rotation.y += d * Math.min(dt * 4, 1);
-        p.head.rotation.y = 0;
       }
       // 标签距离淡出
       const d = Math.sqrt(dist2(playerPos.x, playerPos.z, n.x, n.z));

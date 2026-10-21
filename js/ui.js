@@ -48,6 +48,7 @@
 
     $('btn-journal').onclick = () => this.journal();
     $('btn-notes').onclick = () => this.notes();
+    $('btn-view').onclick = () => this.game.toggleView();
     $('btn-help').onclick = () => this.help();
 
     $('dlg-continue').onclick = () => this._continue();

@@ -32,6 +32,7 @@
   <div class="hud-right">
     <button class="hud-btn" id="btn-journal" title="任务日志 (Tab)">📜 日志</button>
     <button class="hud-btn" id="btn-notes" title="地理笔记 (N)">📘 笔记</button>
+    <button class="hud-btn" id="btn-view" title="切换第一/第三人称 (V)">👁 视角</button>
     <button class="hud-btn" id="btn-help" title="操作说明 (H)">⌨ 操作</button>
   </div>
 </div>
@@ -109,14 +110,42 @@
   </div>
 </div>
 
-<script src="vendor/three.min.js"></script>
-<script src="js/config.js"></script>
-<script src="js/quiz.js"></script>
-<script src="js/story.js"></script>
-<script src="js/world.js"></script>
-<script src="js/player.js"></script>
-<script src="js/npcs.js"></script>
-<script src="js/ui.js"></script>
-<script src="js/game.js"></script>
+<!-- ESM：单一 three 实例 + GLTFLoader，加载完成后按顺序注入经典脚本 -->
+<script type="importmap">
+{
+  "imports": {
+    "three": "./vendor/three.module.js",
+    "three/addons/": "./vendor/jsm/"
+  }
+}
+</script>
+<script type="module">
+  import * as THREE from 'three';
+  import { GLTFLoader } from './vendor/jsm/loaders/GLTFLoader.js';
+  import { clone as cloneSkeleton } from 'three/addons/utils/SkeletonUtils.js';
+  // 把 ESM 模块挂到 window，供经典脚本以全局 THREE / GLTFLoader 使用
+  window.THREE = THREE;
+  window.GLTFLoader = GLTFLoader;
+  window.SkeletonUtils = { clone: cloneSkeleton };
+  const scripts = [
+    'js/config.js', 'js/quiz.js', 'js/story.js', 'js/world.js',
+    'js/loader.js', 'js/player.js', 'js/npcs.js', 'js/ui.js', 'js/game.js'
+  ];
+  (async () => {
+    for (const src of scripts) {
+      await new Promise((res, rej) => {
+        const el = document.createElement('script');
+        el.src = src;
+        el.onload = res;
+        el.onerror = () => rej(new Error('脚本加载失败：' + src));
+        document.body.appendChild(el);
+      });
+    }
+  }).catch(err => {
+    const t = document.getElementById('ld-tip');
+    if (t) t.textContent = '启动失败：' + err.message;
+    console.error(err);
+  });
+</script>
 </body>
 </html>

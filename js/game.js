@@ -35,25 +35,45 @@
   Game.boot = function () {
     const canvas = document.getElementById('scene');
     World.init(canvas);
+    S.Models.init();
     Player.create(World.scene);
     Player.bindInput(canvas);
-    NPCs.create(World.scene);
     UI.init(this);
     this.bindKeys();
 
     const ld = document.getElementById('ld-progress');
     const tip = document.getElementById('ld-tip');
-    World.build((label, p) => {
-      tip.textContent = label;
-      if (ld) ld.style.width = Math.round(p * 100) + '%';
+
+    // 1) 预加载 GLB 模型（玩家 + 牲畜 + 村民角色）
+    const MODEL_LIST = [
+      'vendor/models/Soldier.glb',
+      'vendor/models/cow.glb', 'vendor/models/bull.glb', 'vendor/models/goat.glb',
+      'vendor/models/sheep.glb', 'vendor/models/camel.glb', 'vendor/models/chicken.glb',
+      'vendor/models/farmer.glb', 'vendor/models/woman.glb', 'vendor/models/adventurer.glb'
+    ];
+    S.Models.preloadAll(MODEL_LIST, (done, total) => {
+      tip.textContent = '正在装载牲畜与村民模型… ' + done + '/' + total;
+      if (ld) ld.style.width = Math.round((done / total) * 50) + '%';
     }).then(() => {
-      if (ld) ld.style.width = '100%';
-      tip.textContent = '准备好了。';
-      setTimeout(() => {
-        document.getElementById('loading').classList.add('out');
-        this.startLoop();
-        UI.title(() => this.startStory());
-      }, 350);
+      // 接入玩家动画模型（失败则保留占位胶囊）
+      Player.setupModel(S.Models._gltfs['vendor/models/Soldier.glb']);
+      // 生成村民（需先预加载角色模型）
+      if (S.NPCs && S.NPCs.create) S.NPCs.create(World.scene);
+      if (ld) ld.style.width = '55%';
+
+      // 2) 构建世界（含散布的牲畜）
+      World.build((label, p) => {
+        tip.textContent = label;
+        if (ld) ld.style.width = Math.round(55 + p * 40) + '%';
+      }).then(() => {
+        if (ld) ld.style.width = '100%';
+        tip.textContent = '准备好了。';
+        setTimeout(() => {
+          document.getElementById('loading').classList.add('out');
+          this.startLoop();
+          UI.title(() => this.startStory());
+        }, 350);
+      });
     });
   };
 
@@ -578,6 +598,8 @@
         if (UI.mode === 'overlay') UI.closeOverlay(); else UI.notes();
       } else if (code === 'KeyH') {
         if (UI.mode === 'overlay') UI.closeOverlay(); else UI.help();
+      } else if (code === 'KeyV') {
+        if (!UI.mode) this.toggleView();
       } else if (code === 'Escape') {
         if (UI.mode === 'overlay') UI.closeOverlay();
         else if (UI.mode === 'dialogue') { UI.hideDialogue(); this._pendingNext = false; this._talkCompletesStep = false; }
@@ -593,8 +615,15 @@
         }
       }
     });
-    const ba = document.getElementById('btn-act');
-    if (ba) ba.addEventListener('click', () => { if (!UI.mode) this.tryInteract(); });
+      const ba = document.getElementById('btn-act');
+      if (ba) ba.addEventListener('click', () => { if (!UI.mode) this.tryInteract(); });
+    };
+
+  Game.toggleView = function () {
+    Player.toggleView();
+    UI.toast(Player.firstPerson ? '已切换到第一人称' : '已切换到第三人称', 'good');
+    const btn = document.getElementById('btn-view');
+    if (btn) btn.textContent = Player.firstPerson ? '👤 第一人称' : '👁 视角';
   };
 
   /* ================= 主循环 ================= */

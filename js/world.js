@@ -244,67 +244,56 @@
     const counts = { 0: 0, 1: 0, 2: 0, 3: 0 };
     treeSpots.forEach(t => counts[t.kind]++);
 
-    const mk = (geo, mat, n) => {
-      const m = new THREE.InstancedMesh(geo, mat, Math.max(n, 1));
-      m.castShadow = true;
-      m.receiveShadow = false;
-      m.count = n;
-      scene.add(m);
-      return m;
+    /* ---- 真实 GLB 树（来自 Poly Pizza / Quaternius，CC0）---- */
+    const gltfTree = S.Models.get('vendor/models/tree.glb');
+    const treeNodes = [];
+    if (gltfTree) {
+      gltfTree.scene.traverse(o => { if (/^NormalTree_\d+$/.test(o.name || '')) treeNodes.push(o); });
+      treeNodes.sort((a, b) => a.name.localeCompare(b.name));
+    }
+
+    const placeOneTree = (srcNode, x, z, targetH) => {
+      let node;
+      try { node = window.SkeletonUtils ? window.SkeletonUtils.clone(srcNode) : srcNode.clone(true); }
+      catch (e) { node = srcNode.clone(true); }
+      node.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+      const box = new THREE.Box3().setFromObject(node);
+      const sz = new THREE.Vector3(); box.getSize(sz);
+      node.scale.setScalar(targetH / (sz.y || targetH));
+      const box2 = new THREE.Box3().setFromObject(node);
+      node.position.set(x, heightAt(x, z) - box2.min.y, z);
+      node.rotation.y = rng() * 6.283;
+      scene.add(node);
     };
-    const tAcacia = mk(trunkGeo, trunkMat, counts[0] + counts[1] + counts[2]);
-    const cAcacia = mk(canopyGeo, canopyMat, counts[0] + counts[1]);
-    const cPalm = mk(coneGeo, palmMat, counts[2]);
-    const cBush = mk(bushGeo, bushMat, counts[3]);
 
-    const M = new THREE.Matrix4(), Q = new THREE.Quaternion(), P = new THREE.Vector3(), SC = new THREE.Vector3();
-    const col = new THREE.Color();
-    let i0 = 0, i1 = 0, i2 = 0, i3 = 0;
+    // 模型缺失时的程序化降级（极少触发）
+    if (!treeNodes.length) {
+      const tMat = new THREE.MeshLambertMaterial({ color: COLOR.trunk });
+      const cMat = new THREE.MeshLambertMaterial({ color: COLOR.canopy });
+      treeSpots.forEach(t => {
+        const g = new THREE.Group();
+        const tg = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.28, 3.4, 6), tMat); tg.position.y = 1.7; tg.castShadow = true;
+        const cg = new THREE.Mesh(new THREE.IcosahedronGeometry(1.8, 0), cMat); cg.position.y = 3.6; cg.castShadow = true;
+        g.add(tg, cg); g.position.set(t.x, heightAt(t.x, t.z), t.z); scene.add(g);
+      });
+      return treeSpots;
+    }
 
+    let ti = 0;
     for (const t of treeSpots) {
-      const y = heightAt(t.x, t.z);
-      const dry = clamp((t.a - 0.25) / 0.6, 0, 1);
-      if (t.kind === 0) {        // 金合欢：伞形扁冠
-        const h = 3.2 + rng() * 2.2, rw = 2.4 + rng() * 1.8;
-        P.set(t.x, y - 0.2, t.z); Q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), rng() * 6.28);
-        SC.set(1, h, 1); M.compose(P, Q, SC); tAcacia.setMatrixAt(i0, M);
-        P.set(t.x, y + h * 0.94, t.z);
-        SC.set(rw, rw * 0.52, rw); M.compose(P, Q, SC); cAcacia.setMatrixAt(i0, M);
-        col.setHex(COLOR.canopy).lerp(new THREE.Color(COLOR.canopyDry), dry * 0.75);
-        col.offsetHSL(0, 0, (rng() - 0.5) * 0.06);
-        cAcacia.setColorAt(i0, col);
-        i0++;
+      const src = treeNodes[ti++ % treeNodes.length];
+      if (t.kind === 0) {        // 金合欢：伞形
+        placeOneTree(src, t.x, t.z, 4.0 + rng() * 2.4);
+        if (rng() < 0.3) World.obstacles.push({ x: t.x, z: t.z, r: 1.1 });
       } else if (t.kind === 1) { // 猴面包：巨干
-        const h = 4.2 + rng() * 1.6, rw = 3.4 + rng() * 1.6;
-        P.set(t.x, y - 0.3, t.z); Q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), rng() * 6.28);
-        SC.set(1.9, h, 1.9); M.compose(P, Q, SC); tAcacia.setMatrixAt(i0, M);
-        P.set(t.x, y + h * 0.98, t.z);
-        SC.set(rw, rw * 0.66, rw); M.compose(P, Q, SC); cAcacia.setMatrixAt(i0, M);
-        col.setHex(0x5c7a34).offsetHSL(0, 0, (rng() - 0.5) * 0.05);
-        cAcacia.setColorAt(i0, col);
-        i0++;
+        placeOneTree(src, t.x, t.z, 5.6 + rng() * 1.4);
         World.obstacles.push({ x: t.x, z: t.z, r: 1.9 });
       } else if (t.kind === 2) { // 棕榈
-        const h = 4.5 + rng() * 2.5;
-        P.set(t.x, y - 0.2, t.z); Q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), rng() * 6.28);
-        SC.set(0.55, h, 0.55); M.compose(P, Q, SC); tAcacia.setMatrixAt(i0, M);
-        P.set(t.x, y + h * 0.92, t.z);
-        SC.set(2.0, 1.5, 2.0); M.compose(P, Q, SC); cPalm.setMatrixAt(i2, M);
-        i0++; i2++;
-      } else {                   // 灌木
-        const s = 0.7 + rng() * 0.9;
-        P.set(t.x, y + s * 0.35, t.z); Q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), rng() * 6.28);
-        SC.set(s * 1.25, s * 0.8, s * 1.25); M.compose(P, Q, SC); cBush.setMatrixAt(i3, M);
-        col.setHex(COLOR.scrub).lerp(new THREE.Color(0x8a8b46), dry * 0.8);
-        cBush.setColorAt(i3, col);
-        i3++;
+        placeOneTree(src, t.x, t.z, 5.2 + rng() * 2.0);
+      } else {                   // 灌木：用最小的树缩小
+        placeOneTree(treeNodes[treeNodes.length - 1], t.x, t.z, 1.6 + rng() * 1.0);
       }
-      if (t.kind === 0 && rng() < 0.3) World.obstacles.push({ x: t.x, z: t.z, r: 1.1 });
     }
-    [tAcacia, cAcacia, cPalm, cBush].forEach(m => {
-      m.instanceMatrix.needsUpdate = true;
-      if (m.instanceColor) m.instanceColor.needsUpdate = true;
-    });
     return treeSpots;
   }
 
@@ -442,16 +431,42 @@
       houseSpecs.push({ x: farm.x - 20 + i * 8, z: farm.z + 14, w: 7, d: 0.5, h: 0.55, kind: 'fence', rot: 0 });
     }
 
-    /* --- 实例化 --- */
-    const walls = new THREE.InstancedMesh(wallGeo, wallMat, houseSpecs.length);
-    const roofs = new THREE.InstancedMesh(roofGeo, roofMat, houseSpecs.length);
+    /* --- 真实 GLB 泥屋（house / granary / stall / nursery 用 hut 模型）--- */
+    const gltfHut = S.Models.get('vendor/models/hut.glb');
+    const hutKinds = new Set(['house', 'granary', 'stall', 'nursery']);
+    const hutSpecs = houseSpecs.filter(h => hutKinds.has(h.kind));
+    if (gltfHut) {
+      for (const h of hutSpecs) {
+        let node;
+        try { node = window.SkeletonUtils ? window.SkeletonUtils.clone(gltfHut.scene) : gltfHut.scene.clone(true); }
+        catch (e) { node = gltfHut.scene.clone(true); }
+        node.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+        const box = new THREE.Box3().setFromObject(node);
+        const sz = new THREE.Vector3(); box.getSize(sz);
+        const targetW = Math.max(h.w, h.d) * 0.92;
+        const s = targetW / (Math.max(sz.x, sz.z) || targetW);
+        const sH = 2.7 / (sz.y || 2.7);
+        node.scale.setScalar(Math.min(s, sH));
+        const box2 = new THREE.Box3().setFromObject(node);
+        const y = heightAt(h.x, h.z);
+        node.position.set(h.x, y - box2.min.y, h.z);
+        node.rotation.y = h.rot;
+        scene.add(node);
+      }
+    }
+
+    /* --- 其余建筑（清真寺 / 小学 / 帐篷 / 田埂 / 苗床）程序化实例化 --- */
+    // hut 模型缺失时，全部回退到程序化方块，避免房屋消失
+    const otherSpecs = gltfHut ? houseSpecs.filter(h => !hutKinds.has(h.kind)) : houseSpecs;
+    const walls = new THREE.InstancedMesh(wallGeo, wallMat, Math.max(otherSpecs.length, 1));
+    const roofs = new THREE.InstancedMesh(roofGeo, roofMat, Math.max(otherSpecs.length, 1));
     walls.castShadow = true; walls.receiveShadow = true;
     roofs.castShadow = true;
     const M = new THREE.Matrix4(), Q = new THREE.Quaternion(), P = new THREE.Vector3(), SC = new THREE.Vector3();
     const col = new THREE.Color();
     const palette = [0xb5794a, 0xa96a3e, 0xc08a56, 0x9c6034, 0xb98c62];
     const roofPalette = [0xc9a05e, 0xb8914c, 0xd8b478];
-    houseSpecs.forEach((h, i) => {
+    otherSpecs.forEach((h, i) => {
       const y = heightAt(h.x, h.z);
       Q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), h.rot);
       let roofScale = 1;
@@ -527,29 +542,44 @@
   }
 
   /* ============ 牲畜（真实 GLB 模型） ============ */
-  /* 牛 / 公牛 / 山羊 / 绵羊 / 骆驼 / 鸡，散布在牧民营地与水塘周边 */
+  /* 牛 / 公牛 / 山羊 / 绵羊 / 骆驼 / 鸡，散布在牧民营地与水塘周边。
+   * 不同作者对模型使用的「单位」不一致（有的 1 单位=1 米，有的 1 单位≈800 米），
+   * 所以统一用包围盒把每只动物归一化到真实身高，避免巨大/过小。
+   * 目标身高（米）由各模型真实比例给定。 */
+  const ANIMAL_TARGET_H = {
+    'vendor/models/cow.glb': 1.5, 'vendor/models/bull.glb': 1.7,
+    'vendor/models/goat.glb': 0.7, 'vendor/models/sheep.glb': 0.9,
+    'vendor/models/camel.glb': 2.2, 'vendor/models/chicken.glb': 0.42
+  };
   function placeAnimals(scene) {
     const g = new THREE.Group();
     const defs = [
-      ['vendor/models/cow.glb',    4, 108,  -58, 18, 1.00],
-      ['vendor/models/bull.glb',   1, 108,  -58, 12, 1.15],
-      ['vendor/models/goat.glb',   4, 120,  -74, 12, 1.00],
-      ['vendor/models/sheep.glb',  5, 126, -110, 16, 1.00],
-      ['vendor/models/camel.glb',  2, 132, -124, 14, 1.00],
-      ['vendor/models/chicken.glb', 7, 100,  -50, 10, 1.60]
+      ['vendor/models/cow.glb',    4, 108,  -58, 18],
+      ['vendor/models/bull.glb',   1, 108,  -58, 12],
+      ['vendor/models/goat.glb',   4, 120,  -74, 12],
+      ['vendor/models/sheep.glb',  5, 126, -110, 16],
+      ['vendor/models/camel.glb',  2, 132, -124, 14],
+      ['vendor/models/chicken.glb', 7, 100,  -50, 10]
     ];
-    defs.forEach(([path, count, cx, cz, rad, sc]) => {
+    defs.forEach(([path, count, cx, cz, rad]) => {
+      const targetH = ANIMAL_TARGET_H[path] || 1.5;
       for (let i = 0; i < count; i++) {
         const inst = S.Models.instance(path);
         if (!inst) continue;
         const m = inst.scene;
-        m.scale.setScalar(sc);
+        // 按包围盒归一化到目标身高
+        const box = new THREE.Box3().setFromObject(m);
+        const size = new THREE.Vector3(); box.getSize(size);
+        const s = targetH / (size.y || targetH);
+        m.scale.setScalar(s);
         m.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; o.frustumCulled = true; } });
         const ang = Math.random() * 6.283, rr = rad * (0.25 + Math.random() * 0.75);
         const x = cx + Math.cos(ang) * rr, z = cz + Math.sin(ang) * rr;
         m.position.set(x, heightAt(x, z), z);
         m.rotation.y = Math.random() * 6.283;
         m.userData.phase = Math.random() * 6.283;
+        m.userData.baseYaw = m.rotation.y;       // 基准朝向，仅做轻微摇摆，不再原地乱转
+        m.userData.bob = Math.random() * 6.283;
         g.add(m);
       }
     });
@@ -737,12 +767,13 @@
       }
     }
 
-    // 牲畜缓慢移动
+    // 牲畜：原地轻微摇摆 / 呼吸，不再持续累积旋转（避免「原地乱转」）
     if (this._animals) {
       for (const c of this._animals.children) {
-        c.userData.phase += dt * 0.25;
-        c.position.y = heightAt(c.position.x, c.position.z);
-        c.rotation.y += Math.sin(c.userData.phase) * dt * 0.12;
+        c.userData.phase += dt * 0.6;
+        c.userData.bob += dt * 1.4;
+        c.position.y = heightAt(c.position.x, c.position.z) + Math.abs(Math.sin(c.userData.bob)) * 0.04;
+        c.rotation.y = c.userData.baseYaw + Math.sin(c.userData.phase) * 0.18;
       }
     }
     // 井桶

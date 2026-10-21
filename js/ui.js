@@ -56,7 +56,35 @@
 
     // 小地图背景预渲染
     this._renderMinimapBase();
+    // 导航箭头元素
+    this._navArrow = $('nav-arrow');
   };
+
+  /* 任务导航箭头：根据目标在屏幕上的投影，指向并提示距离。
+   * sx,sy 为目标屏幕坐标；onScreen 表示目标是否落在可视范围内 */
+  UI.navArrow = function (sx, sy, onScreen, distText) {
+    const el = this._navArrow;
+    if (!el) return;
+    const W = window.innerWidth, H = window.innerHeight;
+    const cx = W / 2, cy = H / 2;
+    const d = Math.hypot(sx - cx, sy - cy);
+    const edge = Math.min(W, H) / 2 - 64;
+    // 目标在可视范围内且足够靠近中心时隐藏，否则指向它
+    if (!onScreen || d > edge * 0.55) {
+      el.classList.remove('hidden');
+      const ang = Math.atan2(sy - cy, sx - cx);
+      const r = Math.min(edge, d > edge ? edge : d * 0.92);
+      el.style.left = (cx + Math.cos(ang) * r) + 'px';
+      el.style.top = (cy + Math.sin(ang) * r) + 'px';
+      el.style.transform = 'translate(-50%,-50%) rotate(' + (ang + Math.PI / 2) + 'rad)';
+      const db = el.querySelector('#nav-dist');
+      if (db) db.textContent = distText || '';
+    } else {
+      el.classList.add('hidden');
+    }
+  };
+
+  UI.hideNavArrow = function () { if (this._navArrow) this._navArrow.classList.add('hidden'); };
 
   /* ---------------- HUD ---------------- */
   UI.setHUD = function (st) {
@@ -370,10 +398,18 @@
       cols: 6, rows: 4, need: 6, cls: 'dug', icon: '💧',
       hint: '井绳很长。点击格子把桶放下去再提上来——每一桶都要拉很久。',
       tip: '旱季末，村里的井每天要排两小时的队。'
+    },
+    graze: {
+      title: '练习轮牧',
+      sub: '点还有草的格子，别把同一块啃秃',
+      cols: 6, rows: 4, need: 8, cls: 'grazed', icon: '🌿',
+      hint: '每一格是一块草场。<b>点绿格</b>把草吃了（变成浅黄＝已吃）；<b>同一格点两次</b>就会啃秃（变成土黄，不计数）。\n轮牧的诀窍：吃一块、换一块，给草留口气重新长。',
+      tip: '现实中一块草场被啃的次数要有限度——超了就退化成裸地，雨一冲土也走。'
     }
   };
 
   UI.minigame = function (type, need, onDone) {
+    if (type === 'graze') { this._grazeGame(need || 8, onDone); return; }
     const cfg = MINI[type] || MINI.zai;
     cfg.need = need || cfg.need;
     this.mode = 'minigame';
@@ -420,6 +456,70 @@
     b.className = 'ov-btn ghost';
     b.textContent = '先离开（进度保留）';
     b.onclick = () => { this.closeOverlay(); onDone(count, true); };
+    row.appendChild(b);
+    $('ov-panel').appendChild(row);
+  };
+
+  /* 轮牧小游戏：点绿格吃草，同一格点两次会啃秃（不计数），教会"给草留口气" */
+  UI._grazeGame = function (need, onDone) {
+    let fresh = 0, over = 0;
+    const total = 6 * 4;
+    let html = '<h1>练习轮牧</h1><div class="sub">点还有草的格子，别把同一块啃秃</div>' +
+      '<div class="mg-bar"><i id="mg-bar"></i></div>' +
+      '<div class="mg-grid" id="mg-grid"></div>' +
+      '<div class="mg-hint">每一格是一块草场。<b>点绿格</b>把草吃了；<b>同一格点两次</b>会啃秃（土黄，不计数）。吃一块换一块，给草留口气。</div>' +
+      '<div class="mg-hint" style="margin-top:8px;opacity:.6">💡 现实里一块草场被啃的次数要有限度——超了就退化成裸地。</div>';
+    this.overlay(html, []);
+    const grid = $('mg-grid');
+    const state = new Array(total).fill('grass');
+    // 预先把 5 块随机设为已秃（展示"超载"现状）
+    const idxs = [];
+    for (let i = 0; i < total; i++) idxs.push(i);
+    for (let i = idxs.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [idxs[i], idxs[j]] = [idxs[j], idxs[i]]; }
+    idxs.slice(0, 5).forEach(i => { state[i] = 'bare'; });
+    const cells = [];
+    for (let i = 0; i < total; i++) {
+      const c = document.createElement('div');
+      c.className = 'mg-cell';
+      if (state[i] === 'bare') { c.classList.add('bare'); c.textContent = '🟫'; }
+      else { c.textContent = '🌿'; }
+      c.onclick = () => {
+        if (c.classList.contains('grazed') || c.classList.contains('over')) return;
+        if (state[i] === 'bare') { SFX.bad(); UI.toast('这块已经秃了，别再啃', 'bad'); return; }
+        if (!c.classList.contains('grazed')) {
+          c.classList.add('grazed'); c.textContent = '🌾'; fresh++;
+          $('mg-bar').style.width = Math.min(100, (fresh / need) * 100) + '%';
+          SFX.plant();
+        }
+        // 第二次点同一格：啃秃
+        c.onclick = () => {
+          if (c.classList.contains('over')) return;
+          c.classList.remove('grazed'); c.classList.add('over'); c.textContent = '🟫';
+          fresh = Math.max(0, fresh - 1); over++;
+          $('mg-bar').style.width = Math.min(100, (fresh / need) * 100) + '%';
+          SFX.bad(); UI.toast('啃秃了！轮牧就是要给草留口气', 'bad');
+          updateDone();
+        };
+        updateDone();
+      };
+      cells.push(c);
+      grid.appendChild(c);
+    }
+    function updateDone() {
+      if (fresh >= need) {
+        setTimeout(() => {
+          SFX.good();
+          UI.closeOverlay();
+          onDone(fresh);
+        }, 380);
+      }
+    }
+    const row = document.createElement('div');
+    row.className = 'ov-btn-row';
+    const b = document.createElement('button');
+    b.className = 'ov-btn ghost';
+    b.textContent = '先离开（进度保留）';
+    b.onclick = () => { UI.closeOverlay(); onDone(fresh, true); };
     row.appendChild(b);
     $('ov-panel').appendChild(row);
   };

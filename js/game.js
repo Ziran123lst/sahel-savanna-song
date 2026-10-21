@@ -8,7 +8,11 @@
   const { SITES, NPCS, DIALOGUE, ACTS, PROBES, ENDINGS, clamp, dist2, heightAt } = S;
 
   const siteById = id => SITES.find(s => s.id === id);
-  const npcById = id => NPCS.find(n => n.id === id);
+  // NPCS 是 {list:[]}，没有 find；必须用 NPCs.list.find，且取回的是带 .spec 的列表项
+  const npcById = id => {
+    const it = NPCS.list.find(n => n.spec.id === id);
+    return it ? it.spec : null;
+  };
 
   const Game = {
     state: {
@@ -58,19 +62,20 @@
     const ld = document.getElementById('ld-progress');
     const tip = document.getElementById('ld-tip');
 
-    // 1) 预加载 GLB 模型（玩家 + 牲畜 + 村民角色）
+    // 1) 预加载 GLB 模型（玩家农夫 + 牲畜 + 村民角色 + 树/屋）
     const MODEL_LIST = [
-      'vendor/models/Soldier.glb',
+      'vendor/models/farmer.glb',
       'vendor/models/cow.glb', 'vendor/models/bull.glb', 'vendor/models/goat.glb',
       'vendor/models/sheep.glb', 'vendor/models/camel.glb', 'vendor/models/chicken.glb',
-      'vendor/models/farmer.glb', 'vendor/models/woman.glb', 'vendor/models/adventurer.glb'
+      'vendor/models/woman.glb', 'vendor/models/adventurer.glb',
+      'vendor/models/tree.glb', 'vendor/models/hut.glb'
     ];
     S.Models.preloadAll(MODEL_LIST, (done, total) => {
-      tip.textContent = '正在装载牲畜与村民模型… ' + done + '/' + total;
+      tip.textContent = '正在装载牲畜、村民与场景模型… ' + done + '/' + total;
       if (ld) ld.style.width = Math.round((done / total) * 50) + '%';
     }).then(() => {
       // 接入玩家动画模型（失败则保留占位胶囊）
-      Player.setupModel(S.Models._gltfs['vendor/models/Soldier.glb']);
+      Player.setupModel(S.Models._gltfs['vendor/models/farmer.glb']);
       // 生成村民（需先预加载角色模型）
       if (S.NPCs && S.NPCs.create) S.NPCs.create(World.scene);
       if (ld) ld.style.width = '55%';
@@ -372,7 +377,7 @@
 
   /* ================= 小游戏 ================= */
   Game.runMini = function (type, need, onDone, isTask) {
-    const cfg = { zai: 8, stone: 4, tree: 5, water: 6 };
+    const cfg = { zai: 8, stone: 4, tree: 5, water: 6, graze: 8 };
     const n = need || cfg[type] || 6;
     UI.minigame(type, n, (count, aborted) => {
       if (count > 0) {
@@ -393,6 +398,10 @@
           this.state.fertility = clamp(this.state.fertility + count * 2.6, 0, 100);
           this.state.sustain = clamp(this.state.sustain + count * 2.4, 0, 100);
           UI.toast('🌳 种下 ' + count + ' 棵白相思　旱季有饲料，雨季有肥', 'good');
+        } else if (type === 'graze') {
+          this.state.fertility = clamp(this.state.fertility + count * 1.1, 0, 100);
+          this.state.sustain = clamp(this.state.sustain + count * 1.0, 0, 100);
+          UI.toast('🌿 轮牧练习：吃 ' + count + ' 块草场，给草留了口气', 'good');
         } else {
           this.state.water = clamp(this.state.water + count * 12, 0, 260);
           UI.toast('💧 打了 ' + count + ' 桶水', 'good');
@@ -439,35 +448,38 @@
     // 1) 任务相关：探针
     for (const p of this.probes) {
       if (p.done) continue;
-      if (dist2(pos.x, pos.z, p.x, p.z) < 9) { this.investigate(p); return; }
+      if (dist2(pos.x, pos.z, p.x, p.z) < 16) { this.investigate(p); return; }
     }
-    // 2) NPC
-    const n = NPCs.nearest(pos, 3.4);
-    if (n) {
-      const step = this.currentStep();
-      let nodeId = null;
-      if (step && step.k === 'talk' && step.npc === n.spec.id) {
-        nodeId = step.node || 'start';
+    // 2) 任务要求的对话（优先于世界设施，确保剧情步骤能完成）
+    const step = this.currentStep();
+    if (step && step.k === 'talk') {
+      const nt = NPCs.nearest(pos, 4.6);
+      if (nt && nt.spec.id === step.npc) {
         this._talkCompletesStep = true;    // 此对话即为当前任务步骤
-      }
-      this.talkTo(n.spec.id, nodeId || 'start');
-      return;
-    }
-    // 3) 任务点（小游戏 / 到达点）
-    if (this.taskPoint) {
-      const tp = this.taskPoint;
-      if (dist2(pos.x, pos.z, tp.x, tp.z) < 42) {
-        if (tp.type === 'goto') return;    // 到达点无需交互
-        this.runMini(tp.type, tp.need, () => { }, true);
+        this.talkTo(step.npc, step.node || 'start');
         return;
       }
     }
-    // 4) 世界设施
+    // 3) 世界设施（含市场卖粮；放在普通闲聊之前，避免被 NPC 挡住）
     const zone = S.zoneAt(pos.x, pos.z);
     if (zone && zone.id === 'well') { this.drawWater(90); return; }
     if (zone && zone.id === 'mare') { this.drawWater(70); return; }
     if (zone && zone.id === 'market') { this.sellGrain(); return; }
     if (zone && zone.id === 'nursery') { this.getSeedlings(); return; }
+    // 4) 普通 NPC 闲聊（市场区内不拦截，以免挡住卖粮）
+    if (!zone || zone.id !== 'market') {
+      const n = NPCs.nearest(pos, 4.6);
+      if (n) { this.talkTo(n.spec.id, 'start'); return; }
+    }
+    // 5) 任务点（小游戏 / 到达点）
+    if (this.taskPoint) {
+      const tp = this.taskPoint;
+      if (dist2(pos.x, pos.z, tp.x, tp.z) < 72) {
+        if (tp.type === 'goto') return;    // 到达点无需交互
+        this.runMini(tp.type, tp.need, () => { }, true);
+        return;
+      }
+    }
     UI.toast('这里没有可做的事。附近有人的话，走近一点按 F。');
   };
 
@@ -567,6 +579,13 @@
         prompt = t;
       }
       if (!prompt) {
+        const st = this.currentStep();
+        if (st && st.k === 'talk') {
+          const nn = NPCs.nearest(Player.pos, 4.6);
+          if (nn && nn.spec.id === st.npc) prompt = '交谈';
+        }
+      }
+      if (!prompt) {
         const zn = S.zoneAt(Player.pos.x, Player.pos.z);
         if (zn && zn.id === 'well') prompt = '在老井打水';
         else if (zn && zn.id === 'mare') prompt = '在水塘打水';
@@ -662,6 +681,28 @@
           if (spec) targets.push({ x: spec.x, z: spec.z });
         }
         UI.drawMinimap(Player.pos, Player.yaw, targets);
+
+        // 任务导航箭头：把当前优先目标投影到屏幕，始终指向任务方向
+        if (UI.mode) {
+          UI.hideNavArrow();
+        } else if (targets.length) {
+          // 选取离玩家最近的目标作为导航方向
+          let t = targets[0], bd = Infinity;
+          for (const tt of targets) {
+            const d = dist2(Player.pos.x, Player.pos.z, tt.x, tt.z);
+            if (d < bd) { bd = d; t = tt; }
+          }
+          const ty = heightAt(t.x, t.z) + 1.4;
+          const wp = new THREE.Vector3(t.x, ty, t.z).project(World.camera);
+          let onScreen = wp.x >= -0.96 && wp.x <= 0.96 && wp.y >= -0.96 && wp.y <= 0.96 && wp.z <= 1;
+          if (wp.z > 1) { wp.x = -wp.x; wp.y = -wp.y; onScreen = false; }   // 目标在身后：翻转方向
+          const sx = (wp.x * 0.5 + 0.5) * window.innerWidth;
+          const sy = (-wp.y * 0.5 + 0.5) * window.innerHeight;
+          const dist = Math.sqrt(dist2(Player.pos.x, Player.pos.z, t.x, t.z));
+          UI.navArrow(sx, sy, onScreen, Math.round(dist) + ' 米');
+        } else {
+          UI.hideNavArrow();
+        }
       }
       World.renderer.render(World.scene, World.camera);
     };

@@ -1,6 +1,6 @@
 /* ================================================================
  *  player.js —— 阿马杜：GLB 角色模型 + 第三人称/第一人称控制器
- *  角色模型来自 three.js 官方 Soldier.glb（带动画）。
+ *  角色模型来自 Poly Pizza 的 farmer 模型（带动画），归一化到真实身高。
  *  速度较旧版更快；V 键 / 视角按钮可切换第一、第三人称。
  * ================================================================ */
 (function (global) {
@@ -53,12 +53,22 @@
   };
 
   /* ---------------- 接入 GLB 动画模型 ---------------- */
+  // TARGET_H：归一化到该身高（米），无论模型原生单位是多少
   Player.setupModel = function (gltf) {
     if (!gltf) { this.ready = true; return; }
     if (this._placeholder) { this.group.remove(this._placeholder); this._placeholder = null; }
     const m = gltf.scene;
     m.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
-    m.scale.setScalar(0.95);
+
+    // 按包围盒归一化身高，并把脚底对齐到本地 y=0（不同模型原生单位差异巨大）
+    const box = new THREE.Box3().setFromObject(m);
+    const size = new THREE.Vector3(); box.getSize(size);
+    const TARGET_H = 1.78;
+    const s = TARGET_H / (size.y || TARGET_H);
+    m.scale.setScalar(s);
+    const box2 = new THREE.Box3().setFromObject(m);
+    m.position.y = -box2.min.y;            // 脚底落到 group 原点
+    this.eyeY = box2.max.y - box2.min.y - 0.16;   // 眼睛高度 ≈ 头顶下 16cm
     this.model = m;
     this.group.add(m);
 
@@ -92,36 +102,15 @@
     const ku = e => { this.keys[e.code] = false; };
     window.addEventListener('keydown', kd);
     window.addEventListener('keyup', ku);
-    window.addEventListener('blur', () => { this.keys = {}; });
+    window.addEventListener('blur', () => { this.keys = {}; this._touch = null; });
 
-    let dragging = false, lastX = 0, lastY = 0;
-    const down = e => {
-      if (e.target && e.target.closest && e.target.closest('.panel-ui')) return;
-      dragging = true; lastX = e.clientX; lastY = e.clientY;
-    };
-    const move = e => {
-      if (!dragging) return;
-      const dx = e.clientX - lastX, dy = e.clientY - lastY;
-      lastX = e.clientX; lastY = e.clientY;
-      this.yaw -= dx * 0.0045;
-      this.pitch = clamp(this.pitch + dy * 0.0034, -1.0, 1.2);
-    };
-    const up = () => { dragging = false; };
-    canvas.addEventListener('pointerdown', down);
-    window.addEventListener('pointermove', move);
-    window.addEventListener('pointerup', up);
-    canvas.addEventListener('wheel', e => {
-      this.dist = clamp(this.dist + e.deltaY * 0.006, 2.4, 15);
-      e.preventDefault();
-    }, { passive: false });
-
-    // 触屏摇杆
+    // 触屏摇杆（独立，独占其 pointerId，不参与相机控制）
     const stick = document.getElementById('stick');
     if (stick) {
       const knob = stick.querySelector('i');
       let sid = null, cx = 0, cy = 0;
       stick.addEventListener('pointerdown', e => {
-        sid = e.pointerId; stick.setPointerCapture(sid);
+        sid = e.pointerId; this._joyId = sid; stick.setPointerCapture(sid);
         const r = stick.getBoundingClientRect();
         cx = r.left + r.width / 2; cy = r.top + r.height / 2;
       });
@@ -135,29 +124,71 @@
       });
       const endTouch = e => {
         if (sid !== e.pointerId) return;
-        sid = null; knob.style.transform = 'translate(0,0)'; this._touch = null;
+        sid = null; this._joyId = null; knob.style.transform = 'translate(0,0)'; this._touch = null;
       };
       stick.addEventListener('pointerup', endTouch);
       stick.addEventListener('pointercancel', endTouch);
     }
 
-    // 双指旋转视角
-    let pinch = null;
-    canvas.addEventListener('touchstart', e => {
-      if (e.touches.length === 2) {
-        pinch = { x: (e.touches[0].clientX + e.touches[1].clientX) / 2, y: (e.touches[0].clientY + e.touches[1].clientY) / 2 };
+    // 相机控制：鼠标 / 单指看向 / 双指看向+捏合缩放，统一用 pointer 事件
+    const pts = new Map();          // pointerId -> {x,y}
+    let glance = null;              // 单指看向：上一帧坐标
+    let pinch = null;               // 双指：{mx,my,dist}
+    const onCamDown = e => {
+      if (e.pointerId === this._joyId) return;                     // 摇杆独占
+      if (e.target && e.target.closest && e.target.closest('#stick,#btn-act,#btn-sprint')) return;
+      pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (pts.size === 1) { glance = { x: e.clientX, y: e.clientY }; }
+      else if (pts.size === 2) {
+        const p = [...pts.values()];
+        pinch = { mx: (p[0].x + p[1].x) / 2, my: (p[0].y + p[1].y) / 2, dist: Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y) };
+        glance = null;
       }
-    }, { passive: true });
-    canvas.addEventListener('touchmove', e => {
-      if (pinch && e.touches.length === 2) {
-        const x = (e.touches[0].clientX + e.touches[1].clientX) / 2;
-        const y = (e.touches[0].clientY + e.touches[1].clientY) / 2;
-        this.yaw -= (x - pinch.x) * 0.006;
-        this.pitch = clamp(this.pitch + (y - pinch.y) * 0.004, -1.0, 1.2);
-        pinch.x = x; pinch.y = y;
+    };
+    const onCamMove = e => {
+      if (!pts.has(e.pointerId) || e.pointerId === this._joyId) return;
+      const prev = pts.get(e.pointerId);
+      const dx = e.clientX - prev.x, dy = e.clientY - prev.y;
+      pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (pts.size >= 2 && pinch) {
+        // 双指：中点移动 → 旋转；间距变化 → 缩放（看向与缩放互不打架）
+        const p = [...pts.values()];
+        const mx = (p[0].x + p[1].x) / 2, my = (p[0].y + p[1].y) / 2;
+        this.yaw -= (mx - pinch.mx) * 0.005;
+        this.pitch = clamp(this.pitch - (my - pinch.my) * 0.004, -1.0, 1.2);
+        const dist = Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y);
+        this.dist = clamp(this.dist + (pinch.dist - dist) * 0.02, 2.4, 15);
+        pinch.mx = mx; pinch.my = my; pinch.dist = dist;
+      } else if (pts.size === 1 && glance) {
+        this.yaw -= dx * 0.0045;
+        this.pitch = clamp(this.pitch + dy * 0.0034, -1.0, 1.2);
       }
-    }, { passive: true });
-    canvas.addEventListener('touchend', () => { pinch = null; }, { passive: true });
+    };
+    const onCamUp = e => {
+      pts.delete(e.pointerId);
+      if (pts.size === 1) { const p = [...pts.values()][0]; glance = { x: p.x, y: p.y }; pinch = null; }
+      else if (pts.size === 0) { glance = null; pinch = null; }
+    };
+    canvas.addEventListener('pointerdown', onCamDown);
+    window.addEventListener('pointermove', onCamMove);
+    window.addEventListener('pointerup', onCamUp);
+    window.addEventListener('pointercancel', onCamUp);
+
+    canvas.addEventListener('wheel', e => {
+      this.dist = clamp(this.dist + e.deltaY * 0.006, 2.4, 15);
+      e.preventDefault();
+    }, { passive: false });
+
+    // 疾跑：Shift（键盘）或移动端按钮（this._sprintTouch）
+    const btnSprint = document.getElementById('btn-sprint');
+    if (btnSprint) {
+      const on = e => { e.preventDefault(); this._sprintTouch = true; };
+      const off = e => { e.preventDefault(); this._sprintTouch = false; };
+      btnSprint.addEventListener('pointerdown', on);
+      btnSprint.addEventListener('pointerup', off);
+      btnSprint.addEventListener('pointercancel', off);
+      btnSprint.addEventListener('pointerleave', off);
+    }
   };
 
   /* ---------------- 每帧 ---------------- */
@@ -173,7 +204,7 @@
     }
     const mag = Math.hypot(ix, iz);
     if (mag > 1) { ix /= mag; iz /= mag; }
-    this.running = this.enabled && !!(k['ShiftLeft'] || k['ShiftRight']) && mag > 0.1;
+    this.running = this.enabled && !!(k['ShiftLeft'] || k['ShiftRight'] || this._sprintTouch) && mag > 0.1;
 
     // 方向（相对相机水平朝向）
     const fx = -Math.sin(this.yaw), fz = -Math.cos(this.yaw);
@@ -236,12 +267,12 @@
     // 相机
     const cosP = Math.cos(this.pitch), sinP = Math.sin(this.pitch);
     if (this.firstPerson) {
-      const headY = this.pos.y + 1.62;
+      const headY = this.pos.y + (this.eyeY || 1.62);
       this._camPos.set(this.pos.x, headY, this.pos.z);
       camera.position.copy(this._camPos);
       const dirX = -Math.sin(this.yaw) * cosP;
       const dirZ = -Math.cos(this.yaw) * cosP;
-      const dirY = sinP;
+      const dirY = -sinP;   // 修正：pitch 为正时俯视（向下），与第三人称一致
       this.camTarget.set(this.pos.x + dirX * 12, headY + dirY * 12, this.pos.z + dirZ * 12);
       camera.lookAt(this.camTarget);
     } else {

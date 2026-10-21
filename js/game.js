@@ -34,6 +34,20 @@
   /* ================= 启动 ================= */
   Game.boot = function () {
     const canvas = document.getElementById('scene');
+
+    // 先检测 WebGL 可用性，缺失时给出明确提示而非静默卡死
+    let webglOK = false;
+    try {
+      const gl = canvas.getContext('webgl2') || canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+      webglOK = !!gl;
+    } catch (e) { webglOK = false; }
+    if (!webglOK) {
+      const t = document.getElementById('ld-tip');
+      if (t) t.textContent = '当前浏览器/环境未启用 WebGL，无法渲染 3D 画面。请使用支持 WebGL 的现代浏览器，并确认未禁用「硬件加速」。';
+      console.error('[Game] WebGL 不可用，无法启动 3D 渲染。');
+      return;
+    }
+
     World.init(canvas);
     S.Models.init();
     Player.create(World.scene);
@@ -656,13 +670,21 @@
 
   global.SOS.Game = Game;
 
-  /* 启动 */
-  window.addEventListener('DOMContentLoaded', () => {
+  /* 启动（经典脚本由 ESM 动态注入，此时 DOMContentLoaded 可能已触发，故需按 readyState 兜底） */
+  let _booted = false;
+  function bootOnce() {
+    if (_booted) return;
+    _booted = true;
     try { Game.boot(); }
     catch (err) {
       console.error(err);
       const t = document.getElementById('ld-tip');
       if (t) t.textContent = '启动失败：' + err.message;
     }
-  });
+  }
+  if (document.readyState === 'loading') {
+    window.addEventListener('DOMContentLoaded', bootOnce);
+  } else {
+    bootOnce();
+  }
 })(window);

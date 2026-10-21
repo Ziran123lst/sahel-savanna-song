@@ -141,7 +141,7 @@
         document.body.appendChild(el);
       });
     }
-  }).catch(err => {
+  })().catch(err => {
     const t = document.getElementById('ld-tip');
     if (t) t.textContent = '启动失败：' + err.message;
     console.error(err);

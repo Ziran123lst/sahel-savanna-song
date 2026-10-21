@@ -67,21 +67,17 @@
     if (!el) return;
     const W = window.innerWidth, H = window.innerHeight;
     const cx = W / 2, cy = H / 2;
-    const d = Math.hypot(sx - cx, sy - cy);
-    const edge = Math.min(W, H) / 2 - 64;
-    // 目标在可视范围内且足够靠近中心时隐藏，否则指向它
-    if (!onScreen || d > edge * 0.55) {
-      el.classList.remove('hidden');
-      const ang = Math.atan2(sy - cy, sx - cx);
-      const r = Math.min(edge, d > edge ? edge : d * 0.92);
-      el.style.left = (cx + Math.cos(ang) * r) + 'px';
-      el.style.top = (cy + Math.sin(ang) * r) + 'px';
-      el.style.transform = 'translate(-50%,-50%) rotate(' + (ang + Math.PI / 2) + 'rad)';
-      const db = el.querySelector('#nav-dist');
-      if (db) db.textContent = distText || '';
-    } else {
-      el.classList.add('hidden');
-    }
+    const ang = Math.atan2(sy - cy, sx - cx);
+    const edge = Math.min(W, H) / 2 - 60;
+    const r = onScreen
+      ? Math.min(edge, Math.hypot(sx - cx, sy - cy) * 0.9)   // 屏内：贴近目标
+      : edge;                                                  // 屏外：贴边缘当指南针
+    el.classList.remove('hidden');
+    el.style.left = (cx + Math.cos(ang) * r) + 'px';
+    el.style.top = (cy + Math.sin(ang) * r) + 'px';
+    el.style.transform = 'translate(-50%,-50%) rotate(' + (ang + Math.PI / 2) + 'rad)';
+    const db = el.querySelector('#nav-dist');
+    if (db) db.textContent = distText || '';
   };
 
   UI.hideNavArrow = function () { if (this._navArrow) this._navArrow.classList.add('hidden'); };

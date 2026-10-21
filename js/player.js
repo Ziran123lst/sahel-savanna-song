@@ -17,7 +17,7 @@
     pos: new THREE.Vector3(4, 0, 68),
     yaw: Math.PI,          // 相机水平角
     pitch: 0.34,
-    dist: 6.2,
+    dist: 4.6,
     facing: Math.PI,
     speed: 0,
     moving: false,
@@ -63,7 +63,7 @@
     // 按包围盒归一化身高，并把脚底对齐到本地 y=0（不同模型原生单位差异巨大）
     const box = new THREE.Box3().setFromObject(m);
     const size = new THREE.Vector3(); box.getSize(size);
-    const TARGET_H = 1.78;
+    const TARGET_H = 2.1;    // 略大于真人，提升第三人称下的存在感
     const s = TARGET_H / (size.y || TARGET_H);
     m.scale.setScalar(s);
     const box2 = new THREE.Box3().setFromObject(m);
@@ -278,7 +278,7 @@
     } else {
       const wantX = this.pos.x + Math.sin(this.yaw) * cosP * this.dist;
       const wantZ = this.pos.z + Math.cos(this.yaw) * cosP * this.dist;
-      const wantY = this.pos.y + 1.5 + sinP * this.dist;
+      const wantY = this.pos.y + 1.42 + sinP * this.dist;
       if (!this._camInit) { this._camPos.set(wantX, wantY, wantZ); this._camInit = true; }
       this._camPos.x = lerp(this._camPos.x, wantX, Math.min(dt * 11, 1));
       this._camPos.y = lerp(this._camPos.y, wantY, Math.min(dt * 11, 1));

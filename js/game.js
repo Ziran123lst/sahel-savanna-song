@@ -68,7 +68,9 @@
       'vendor/models/cow.glb', 'vendor/models/bull.glb', 'vendor/models/goat.glb',
       'vendor/models/sheep.glb', 'vendor/models/camel.glb', 'vendor/models/chicken.glb',
       'vendor/models/woman.glb', 'vendor/models/adventurer.glb',
-      'vendor/models/tree.glb', 'vendor/models/hut.glb'
+      'vendor/models/tree.glb', 'vendor/models/hut.glb',
+      'vendor/models/mosque.glb', 'vendor/models/tent.glb', 'vendor/models/baobab.glb',
+      'vendor/models/school.glb', 'vendor/models/stall.glb', 'vendor/models/well.glb'
     ];
     S.Models.preloadAll(MODEL_LIST, (done, total) => {
       tip.textContent = '正在装载牲畜、村民与场景模型… ' + done + '/' + total;
@@ -692,14 +694,19 @@
             const d = dist2(Player.pos.x, Player.pos.z, tt.x, tt.z);
             if (d < bd) { bd = d; t = tt; }
           }
-          const ty = heightAt(t.x, t.z) + 1.4;
-          const wp = new THREE.Vector3(t.x, ty, t.z).project(World.camera);
-          let onScreen = wp.x >= -0.96 && wp.x <= 0.96 && wp.y >= -0.96 && wp.y <= 0.96 && wp.z <= 1;
-          if (wp.z > 1) { wp.x = -wp.x; wp.y = -wp.y; onScreen = false; }   // 目标在身后：翻转方向
-          const sx = (wp.x * 0.5 + 0.5) * window.innerWidth;
-          const sy = (-wp.y * 0.5 + 0.5) * window.innerHeight;
-          const dist = Math.sqrt(dist2(Player.pos.x, Player.pos.z, t.x, t.z));
-          UI.navArrow(sx, sy, onScreen, Math.round(dist) + ' 米');
+          const dist = Math.sqrt(bd);
+          if (dist < 14) { UI.hideNavArrow(); }   // 已抵达：隐藏
+          else {
+            const ty = heightAt(t.x, t.z) + 1.4;
+            const wp = new THREE.Vector3(t.x, ty, t.z).project(World.camera);
+            const behind = wp.z > 1;               // 目标在相机身后
+            let nx = wp.x, ny = wp.y;
+            if (behind) { nx = -nx; ny = -ny; }     // 翻转屏幕方向，指向正确侧
+            const sx = (nx * 0.5 + 0.5) * window.innerWidth;
+            const sy = (-ny * 0.5 + 0.5) * window.innerHeight;
+            const onScreen = !behind && Math.abs(wp.x) <= 1 && Math.abs(wp.y) <= 1;
+            UI.navArrow(sx, sy, onScreen, Math.round(dist) + ' 米');
+          }
         } else {
           UI.hideNavArrow();
         }

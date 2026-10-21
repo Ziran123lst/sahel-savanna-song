@@ -431,114 +431,154 @@
       houseSpecs.push({ x: farm.x - 20 + i * 8, z: farm.z + 14, w: 7, d: 0.5, h: 0.55, kind: 'fence', rot: 0 });
     }
 
-    /* --- 真实 GLB 泥屋（house / granary / stall / nursery 用 hut 模型）--- */
-    const gltfHut = S.Models.get('vendor/models/hut.glb');
-    const hutKinds = new Set(['house', 'granary', 'stall', 'nursery']);
-    const hutSpecs = houseSpecs.filter(h => hutKinds.has(h.kind));
-    if (gltfHut) {
-      for (const h of hutSpecs) {
-        let node;
-        try { node = window.SkeletonUtils ? window.SkeletonUtils.clone(gltfHut.scene) : gltfHut.scene.clone(true); }
-        catch (e) { node = gltfHut.scene.clone(true); }
-        node.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
-        const box = new THREE.Box3().setFromObject(node);
-        const sz = new THREE.Vector3(); box.getSize(sz);
-        const targetW = Math.max(h.w, h.d) * 0.92;
-        const s = targetW / (Math.max(sz.x, sz.z) || targetW);
-        const sH = 2.7 / (sz.y || 2.7);
-        node.scale.setScalar(Math.min(s, sH));
-        const box2 = new THREE.Box3().setFromObject(node);
-        const y = heightAt(h.x, h.z);
-        node.position.set(h.x, y - box2.min.y, h.z);
-        node.rotation.y = h.rot;
-        scene.add(node);
-      }
-    }
+    /* --- 真实 GLB 建筑：house/granary/stall/nursery/mosque/school/tent 用真实模型；
+           缺失该 GLB 时走程序化兜底，避免建筑消失或错位 --- */
+    const M = {
+      house:    S.Models.get('vendor/models/hut.glb'),
+      granary:  S.Models.get('vendor/models/hut.glb'),
+      nursery:  S.Models.get('vendor/models/hut.glb'),
+      stall:    S.Models.get('vendor/models/stall.glb') || S.Models.get('vendor/models/hut.glb'),
+      mosque:   S.Models.get('vendor/models/mosque.glb'),
+      school:   S.Models.get('vendor/models/school.glb'),
+      tent:     S.Models.get('vendor/models/tent.glb'),
+      baobab:   S.Models.get('vendor/models/baobab.glb')
+    };
 
-    /* --- 其余建筑（清真寺 / 小学 / 帐篷 / 田埂 / 苗床）程序化实例化 --- */
-    // hut 模型缺失时，全部回退到程序化方块，避免房屋消失
-    const otherSpecs = gltfHut ? houseSpecs.filter(h => !hutKinds.has(h.kind)) : houseSpecs;
-    const walls = new THREE.InstancedMesh(wallGeo, wallMat, Math.max(otherSpecs.length, 1));
-    const roofs = new THREE.InstancedMesh(roofGeo, roofMat, Math.max(otherSpecs.length, 1));
-    walls.castShadow = true; walls.receiveShadow = true;
-    roofs.castShadow = true;
-    const M = new THREE.Matrix4(), Q = new THREE.Quaternion(), P = new THREE.Vector3(), SC = new THREE.Vector3();
-    const col = new THREE.Color();
-    const palette = [0xb5794a, 0xa96a3e, 0xc08a56, 0x9c6034, 0xb98c62];
-    const roofPalette = [0xc9a05e, 0xb8914c, 0xd8b478];
-    otherSpecs.forEach((h, i) => {
+    // 把 GLB 节点归一化到目标尺寸、脚底对齐地面后摆放。
+    // 统一缩放（sW 与 sH 取大值）：既铺满占地又不矮于目标高度，绝不拉伸变形。
+    const placeModel = (gltf, x, z, targetH, targetW, rot) => {
+      let node;
+      try { node = window.SkeletonUtils ? window.SkeletonUtils.clone(gltf.scene) : gltf.scene.clone(true); }
+      catch (e) { node = gltf.scene.clone(true); }
+      node.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+      const box = new THREE.Box3().setFromObject(node);
+      const sz = new THREE.Vector3(); box.getSize(sz);
+      const sW = targetW / (Math.max(sz.x, sz.z) || targetW);
+      const sH = targetH / (sz.y || targetH);
+      const sc = Math.max(sW, sH);
+      node.scale.setScalar(sc);
+      const box2 = new THREE.Box3().setFromObject(node);
+      const y = heightAt(x, z);
+      node.position.set(x, y - box2.min.y, z);
+      node.rotation.y = rot || 0;
+      scene.add(node);
+      return Math.max(sz.x, sz.z) * sc * 0.5;
+    };
+
+    houseSpecs.forEach(h => {
+      const model = M[h.kind];
+      if (model) {
+        const tw = (h.kind === 'stall' || h.kind === 'fence' || h.kind === 'bed') ? 0 : Math.max(h.w, h.d) * 0.92;
+        const th = (h.kind === 'stall') ? 2.1 : h.h;
+        const r = placeModel(model, h.x, h.z, th, tw, h.rot);
+        if (h.kind === 'stall' || h.kind === 'tent') World.obstacles.push({ x: h.x, z: h.z, r: r || Math.max(h.w, h.d) * 0.5 });
+        return;
+      }
+      // —— 程序化兜底（仅当对应 GLB 缺失）——
       const y = heightAt(h.x, h.z);
-      Q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), h.rot);
-      let roofScale = 1;
-      if (h.kind === 'stall') { SC.set(h.w, h.h, h.d); P.set(h.x, y, h.z); M.compose(P, Q, SC); walls.setMatrixAt(i, M); roofScale = 0; }
-      else if (h.kind === 'fence') { SC.set(h.w, h.h, h.d); P.set(h.x, y, h.z); M.compose(P, Q, SC); walls.setMatrixAt(i, M); roofScale = 0; }
-      else if (h.kind === 'bed') { SC.set(h.w, h.h, h.d); P.set(h.x, y, h.z); M.compose(P, Q, SC); walls.setMatrixAt(i, M); roofScale = 0; }
-      else { SC.set(h.w, h.h, h.d); P.set(h.x, y, h.z); M.compose(P, Q, SC); walls.setMatrixAt(i, M); }
-      if (roofScale === 0) { SC.set(0.001, 0.001, 0.001); P.set(h.x, y, h.z); M.compose(P, Q, SC); roofs.setMatrixAt(i, M); }
-      else {
-        const r = Math.max(h.w, h.d) * 0.72;
-        if (h.kind === 'tent') SC.set(r * 1.15, h.h * 1.1, r * 1.15);
-        else if (h.kind === 'mosque') SC.set(r * 0.9, 1.6, r * 0.9);
-        else SC.set(r, h.h * 0.62 + 0.6, r);
-        P.set(h.x, y + h.h, h.z); M.compose(P, Q, SC); roofs.setMatrixAt(i, M);
+      const g = new THREE.Group();
+      if (h.kind === 'fence' || h.kind === 'bed') {
+        const m = new THREE.Mesh(new THREE.BoxGeometry(h.w, h.h, h.d),
+          new THREE.MeshLambertMaterial({ color: h.kind === 'bed' ? 0x6b4a2a : 0x8a6a44 }));
+        m.position.y = h.h / 2; m.castShadow = true; g.add(m);
+      } else if (h.kind === 'stall') {
+        const base = new THREE.Mesh(new THREE.BoxGeometry(h.w, 0.5, h.d), wallMat); base.position.y = 0.25; base.castShadow = true;
+        const post = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, h.h + 0.6, 6), new THREE.MeshLambertMaterial({ color: 0x6b4a2a }));
+        post.position.set(h.w / 2 - 0.2, h.h / 2 + 0.3, h.d / 2 - 0.2);
+        const post2 = post.clone(); post2.position.x = -(h.w / 2 - 0.2);
+        const roof = new THREE.Mesh(new THREE.BoxGeometry(h.w + 0.6, 0.12, h.d + 0.6), roofMat); roof.position.y = h.h + 0.5;
+        g.add(base, post, post2, roof);
+        World.obstacles.push({ x: h.x, z: h.z, r: Math.max(h.w, h.d) * 0.6 });
+      } else if (h.kind === 'tent') {
+        const tent = new THREE.Mesh(new THREE.ConeGeometry(Math.max(h.w, h.d) * 0.62, h.h * 1.35, 14),
+          new THREE.MeshLambertMaterial({ color: 0xcbb894 }));
+        tent.position.y = h.h * 0.67; tent.castShadow = true; g.add(tent);
+        const door = new THREE.Mesh(new THREE.PlaneGeometry(h.w * 0.4, h.h * 0.7),
+          new THREE.MeshLambertMaterial({ color: 0x7a5f3c, side: THREE.DoubleSide }));
+        door.position.set(0, h.h * 0.35, Math.max(h.w, h.d) * 0.58); g.add(door);
+        World.obstacles.push({ x: h.x, z: h.z, r: Math.max(h.w, h.d) * 0.6 });
+      } else if (h.kind === 'mosque') {
+        const body = new THREE.Mesh(new THREE.BoxGeometry(h.w, h.h, h.d), wallMat); body.position.y = h.h / 2; body.castShadow = true;
+        const dome = new THREE.Mesh(new THREE.SphereGeometry(h.w * 0.42, 18, 12, 0, Math.PI * 2, 0, Math.PI / 2),
+          new THREE.MeshLambertMaterial({ color: 0xcdb286 })); dome.position.y = h.h; dome.castShadow = true;
+        const minaret = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.95, h.h + 4, 10), wallMat);
+        minaret.position.set(h.w * 0.5 + 1, (h.h + 4) / 2, 0); minaret.castShadow = true;
+        g.add(body, dome, minaret);
+      } else if (h.kind === 'school') {
+        const body = new THREE.Mesh(new THREE.BoxGeometry(h.w, h.h, h.d), wallMat); body.position.y = h.h / 2; body.castShadow = true;
+        const roof = new THREE.Mesh(new THREE.BoxGeometry(h.w + 0.4, 0.4, h.d + 0.4), roofMat); roof.position.y = h.h;
+        const door = new THREE.Mesh(new THREE.PlaneGeometry(1.4, h.h * 0.7), new THREE.MeshLambertMaterial({ color: 0x5a3a1c, side: THREE.DoubleSide }));
+        door.position.set(0, h.h * 0.35, h.d / 2 + 0.01);
+        g.add(body, roof, door);
+      } else {
+        // house / granary / nursery 兜底
+        const body = new THREE.Mesh(new THREE.BoxGeometry(h.w, h.h, h.d), wallMat); body.position.y = h.h / 2; body.castShadow = true;
+        const roof = new THREE.Mesh(roofGeo, roofMat); roof.scale.set(Math.max(h.w, h.d) * 0.72, h.h * 0.62 + 0.6, Math.max(h.w, h.d) * 0.72);
+        roof.position.y = h.h; g.add(body, roof);
       }
-      col.setHex(palette[i % palette.length]).offsetHSL(0, 0, (rng() - 0.5) * 0.05);
-      if (h.kind === 'stall' || h.kind === 'fence' || h.kind === 'bed') col.setHex(h.kind === 'bed' ? 0x6b4a2a : 0x8a6a44);
-      walls.setColorAt(i, col);
-      col.setHex(h.kind === 'tent' ? 0xcbb894 : roofPalette[i % 2]);
-      roofs.setColorAt(i, col);
+      g.position.set(h.x, y, h.z); g.rotation.y = h.rot;
+      scene.add(g);
     });
-    walls.instanceMatrix.needsUpdate = true; roofs.instanceMatrix.needsUpdate = true;
-    if (walls.instanceColor) walls.instanceColor.needsUpdate = true;
-    if (roofs.instanceColor) roofs.instanceColor.needsUpdate = true;
-    scene.add(walls); scene.add(roofs);
 
-    // 清真寺尖塔
-    const minGeo = new THREE.CylinderGeometry(0.85, 1.25, 8, 8);
-    const minaret = new THREE.Mesh(minGeo, new THREE.MeshLambertMaterial({ color: 0xc79a63 }));
-    minaret.position.set(vil.x - 14, heightAt(vil.x - 14, vil.z + 20) + 4, vil.z + 20);
-    minaret.castShadow = true;
-    scene.add(minaret);
-
-    // 集会树（巨猴面包）
-    const gt = new THREE.Group();
-    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(2.6, 3.6, 7, 10), new THREE.MeshLambertMaterial({ color: COLOR.baobab }));
-    trunk.position.y = 3.5; trunk.castShadow = true;
-    const crown = new THREE.Mesh(new THREE.IcosahedronGeometry(6.4, 1), new THREE.MeshLambertMaterial({ color: 0x5f7c36 }));
-    crown.position.y = 7.6; crown.scale.set(1, 0.62, 1); crown.castShadow = true;
-    gt.add(trunk); gt.add(crown);
+    // 集会猴面包树：真实猴面包模型优先，否则程序化
     const gx = vil.x + 2, gz = vil.z + 2;
-    gt.position.set(gx, heightAt(gx, gz), gz);
-    scene.add(gt);
-    World.obstacles.push({ x: gx, z: gz, r: 3.4 });
+    if (M.baobab) {
+      placeModel(M.baobab, gx, gz, 9.5, 9, 0);
+      World.obstacles.push({ x: gx, z: gz, r: 3.6 });
+    } else {
+      const gt = new THREE.Group();
+      const trunk = new THREE.Mesh(new THREE.CylinderGeometry(2.6, 3.6, 7, 10), new THREE.MeshLambertMaterial({ color: COLOR.baobab }));
+      trunk.position.y = 3.5; trunk.castShadow = true;
+      const crown = new THREE.Mesh(new THREE.IcosahedronGeometry(6.4, 1), new THREE.MeshLambertMaterial({ color: 0x5f7c36 }));
+      crown.position.y = 7.6; crown.scale.set(1, 0.62, 1); crown.castShadow = true;
+      gt.add(trunk); gt.add(crown);
+      gt.position.set(gx, heightAt(gx, gz), gz);
+      scene.add(gt);
+      World.obstacles.push({ x: gx, z: gz, r: 3.4 });
+    }
   }
 
   /* ============ 水井 ============ */
   function makeWell(scene) {
     const s = SITES.find(v => v.id === 'well');
-    const g = new THREE.Group();
     const y = heightAt(s.x, s.z);
-    const ring = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 1.5, 1.0, 16, 1, true),
-      new THREE.MeshLambertMaterial({ color: 0x8a7a63, side: THREE.DoubleSide }));
-    ring.position.set(0, 0.5, 0);
-    const inner = new THREE.Mesh(new THREE.CircleGeometry(1.4, 16), new THREE.MeshLambertMaterial({ color: 0x1b1410 }));
-    inner.rotation.x = -Math.PI / 2; inner.position.y = 0.05;
-    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 3.2, 6), new THREE.MeshLambertMaterial({ color: 0x6b4a2a }));
-    post.position.set(1.1, 1.6, 0);
-    const arm = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.12, 0.12), new THREE.MeshLambertMaterial({ color: 0x6b4a2a }));
-    arm.position.set(0, 3.1, 0);
-    const bucket = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.18, 0.4, 8), new THREE.MeshLambertMaterial({ color: 0x3a2c1e }));
-    bucket.position.set(-0.9, 2.0, 0);
-    g.add(ring, inner, post, arm, bucket);
-    g.position.set(s.x, y, s.z);
-    scene.add(g);
+    const gltfWell = S.Models.get('vendor/models/well.glb');
+    if (gltfWell) {
+      let node;
+      try { node = window.SkeletonUtils ? window.SkeletonUtils.clone(gltfWell.scene) : gltfWell.scene.clone(true); }
+      catch (e) { node = gltfWell.scene.clone(true); }
+      node.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+      const box = new THREE.Box3().setFromObject(node);
+      const sz = new THREE.Vector3(); box.getSize(sz);
+      const sc = 1.5 / (sz.y || 1.5);          // 水井目标约 1.5m 高
+      node.scale.setScalar(sc);
+      const box2 = new THREE.Box3().setFromObject(node);
+      node.position.set(s.x, y - box2.min.y, s.z);
+      scene.add(node);
+    } else {
+      const g = new THREE.Group();
+      const ring = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 1.5, 1.0, 16, 1, true),
+        new THREE.MeshLambertMaterial({ color: 0x8a7a63, side: THREE.DoubleSide }));
+      ring.position.set(0, 0.5, 0);
+      const inner = new THREE.Mesh(new THREE.CircleGeometry(1.4, 16), new THREE.MeshLambertMaterial({ color: 0x1b1410 }));
+      inner.rotation.x = -Math.PI / 2; inner.position.y = 0.05;
+      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 3.2, 6), new THREE.MeshLambertMaterial({ color: 0x6b4a2a }));
+      post.position.set(1.1, 1.6, 0);
+      const arm = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.12, 0.12), new THREE.MeshLambertMaterial({ color: 0x6b4a2a }));
+      arm.position.set(0, 3.1, 0);
+      const bucket = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.18, 0.4, 8), new THREE.MeshLambertMaterial({ color: 0x3a2c1e }));
+      bucket.position.set(-0.9, 2.0, 0);
+      g.add(ring, inner, post, arm, bucket);
+      g.position.set(s.x, y, s.z);
+      scene.add(g);
+      World._wellBucket = bucket;
+    }
     World.obstacles.push({ x: s.x, z: s.z, r: 2.0 });
     // 饮牛槽
     const trough = new THREE.Mesh(new THREE.BoxGeometry(6, 0.5, 1.6), new THREE.MeshLambertMaterial({ color: 0x7d6a52 }));
     trough.position.set(s.x + 7, y + 0.25, s.z + 5);
     trough.rotation.y = 0.5;
     scene.add(trough);
-    World._wellBucket = bucket;
   }
 
   /* ============ 牲畜（真实 GLB 模型） ============ */

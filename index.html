@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>萨赫勒之歌 · Song of the Sahel — DSE 地理开放世界</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%23e8a33d'/%3E%3Ccircle cx='32' cy='24' r='12' fill='%23ffd86b'/%3E%3Cpath d='M6 50 Q20 38 32 50 T58 50 V60 H6 Z' fill='%23b5762e'/%3E%3C/svg%3E" />
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+<canvas id="scene"></canvas>
+
+<!-- ============ 顶部状态栏 ============ -->
+<div id="hud" class="hidden">
+  <div class="hud-left">
+    <div class="season-chip" id="season-chip">
+      <span id="season-icon">☀</span><span id="season-name">旱季</span>
+      <span class="season-day" id="season-day">第 1 天</span>
+    </div>
+    <div class="res-row">
+      <div class="res" title="水（升）"><span class="ico">💧</span><div class="bar"><i id="bar-water"></i></div><b id="val-water">0</b></div>
+      <div class="res" title="粮食（公斤·小米高粱）"><span class="ico">🌾</span><div class="bar"><i id="bar-food"></i></div><b id="val-food">0</b></div>
+      <div class="res" title="现金（西非法郎 F CFA）"><span class="ico">🪙</span><div class="bar"><i id="bar-cash"></i></div><b id="val-cash">0</b></div>
+      <div class="res" title="土壤肥力（自家田）"><span class="ico">🟤</span><div class="bar"><i id="bar-fert"></i></div><b id="val-fert">0</b></div>
+    </div>
+    <div class="res-row">
+      <div class="res wide" title="可持续发展指数：环境·经济·社会的平衡"><span class="ico">♻</span><div class="bar"><i id="bar-sus"></i></div><b id="val-sus">50</b></div>
+      <div class="res" title="已收集的地理知识点"><span class="ico">📘</span><b id="val-notes">0</b><span class="unit">/30</span></div>
+    </div>
+  </div>
+  <div class="hud-right">
+    <button class="hud-btn" id="btn-journal" title="任务日志 (Tab)">📜 日志</button>
+    <button class="hud-btn" id="btn-notes" title="地理笔记 (N)">📘 笔记</button>
+    <button class="hud-btn" id="btn-help" title="操作说明 (H)">⌨ 操作</button>
+  </div>
+</div>
+
+<!-- ============ 小地图 ============ -->
+<div id="minimap-wrap" class="hidden">
+  <canvas id="minimap" width="200" height="200"></canvas>
+  <div class="mm-label">萨赫勒 · 科多戈地区</div>
+</div>
+
+<!-- ============ 当前目标 ============ -->
+<div id="objective" class="hidden">
+  <div class="obj-chapter" id="obj-chapter">序章</div>
+  <div class="obj-title" id="obj-title">寻找祖母</div>
+  <ul class="obj-steps" id="obj-steps"></ul>
+</div>
+
+<!-- ============ 交互提示 ============ -->
+<div id="interact-prompt" class="hidden"><kbd>F</kbd> <span id="interact-text">交谈</span></div>
+
+<!-- ============ 世界内提示（区域名称） ============ -->
+<div id="zone-banner" class="hidden"><span></span></div>
+
+<!-- ============ 对话面板 ============ -->
+<div id="dialogue" class="hidden">
+  <div class="dlg-box">
+    <div class="dlg-who"><span class="avatar" id="dlg-avatar">👵</span><div><div class="dlg-name" id="dlg-name">Aïcha</div><div class="dlg-role" id="dlg-role">祖母</div></div></div>
+    <p class="dlg-text" id="dlg-text"></p>
+    <div class="dlg-choices" id="dlg-choices"></div>
+    <div class="dlg-next"><button id="dlg-continue">继续 ▸</button><span class="dlg-hint">空格 / 点击继续</span></div>
+  </div>
+</div>
+
+<!-- ============ 问答面板 ============ -->
+<div id="quiz" class="hidden">
+  <div class="quiz-box">
+    <div class="quiz-head">
+      <span class="quiz-tag" id="quiz-tag">荒漠化成因</span>
+      <span class="quiz-src" id="quiz-src">DSE 地理 · 消失中的绿色植被</span>
+    </div>
+    <div class="quiz-stem" id="quiz-stem"></div>
+    <div id="quiz-figure" class="quiz-figure hidden"></div>
+    <div class="quiz-opts" id="quiz-opts"></div>
+    <div class="quiz-feedback hidden" id="quiz-feedback">
+      <div class="fb-head" id="fb-head"></div>
+      <div class="fb-body" id="fb-body"></div>
+      <div class="fb-reward" id="fb-reward"></div>
+      <button id="quiz-close">继续 (空格)</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 全屏遮罩：标题 / 日志 / 笔记 / 帮助 / 小游戏 / 结局 ============ -->
+<div id="overlay" class="hidden">
+  <div class="ov-panel" id="ov-panel"></div>
+</div>
+
+<!-- ============ 浮动提示 ============ -->
+<div id="toast-wrap"></div>
+<div id="fx-flash"></div>
+
+<!-- ============ 移动端摇杆 ============ -->
+<div id="touch-ui" class="hidden">
+  <div id="stick"><i></i></div>
+  <button id="btn-act">F</button>
+</div>
+
+<div id="loading">
+  <div class="ld-inner">
+    <div class="ld-sun"></div>
+    <div class="ld-title">萨赫勒之歌</div>
+    <div class="ld-sub">Song of the Sahel · 开放世界地理冒险</div>
+    <div class="ld-bar"><i id="ld-progress"></i></div>
+    <div class="ld-tip" id="ld-tip">正在生成萨赫勒稀树草原…</div>
+  </div>
+</div>
+
+<script src="vendor/three.min.js"></script>
+<script src="js/config.js"></script>
+<script src="js/quiz.js"></script>
+<script src="js/story.js"></script>
+<script src="js/world.js"></script>
+<script src="js/player.js"></script>
+<script src="js/npcs.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/game.js"></script>
+</body>
+</html>

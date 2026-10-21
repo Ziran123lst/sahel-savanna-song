@@ -145,7 +145,8 @@
       this.openSettings();   // 重建以反映默认值
     };
 
-    // Esc 关闭
+    // Esc 关闭（先移除旧监听，避免重复打开/重置时叠加多个监听器）
+    if (this._setEsc) window.removeEventListener('keydown', this._setEsc);
     this._setEsc = e => { if (e.code === 'Escape') this.closeSettings(); };
     window.addEventListener('keydown', this._setEsc);
 

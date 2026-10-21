@@ -8,7 +8,7 @@
 
   /* ---------------- 音效（WebAudio 合成，无外部资源） ---------------- */
   const SFX = {
-    ctx: null, on: true,
+    ctx: null, on: true, master: 0.8,
     _init() { if (!this.ctx) { try { this.ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { this.on = false; } } },
     tone(freq, dur, type, gain, slideTo) {
       if (!this.on) return;
@@ -19,8 +19,9 @@
       o.type = type || 'sine';
       o.frequency.setValueAtTime(freq, ctx.currentTime);
       if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, ctx.currentTime + dur);
+      const peak = (gain || 0.08) * this.master;
       g.gain.setValueAtTime(0.0001, ctx.currentTime);
-      g.gain.exponentialRampToValueAtTime(gain || 0.08, ctx.currentTime + 0.012);
+      g.gain.exponentialRampToValueAtTime(Math.max(0.0002, peak), ctx.currentTime + 0.012);
       g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + dur);
       o.connect(g); g.connect(ctx.destination);
       o.start(); o.stop(ctx.currentTime + dur + 0.02);
@@ -50,6 +51,7 @@
     $('btn-notes').onclick = () => this.notes();
     $('btn-view').onclick = () => this.game.toggleView();
     $('btn-help').onclick = () => this.help();
+    $('btn-settings').onclick = () => this.openSettings();
 
     $('dlg-continue').onclick = () => this._continue();
     $('quiz-close').onclick = () => this._closeQuiz();
@@ -59,6 +61,109 @@
     // 导航箭头元素
     this._navArrow = $('nav-arrow');
   };
+
+  /* ---------------- 设置面板 ---------------- */
+  UI.openSettings = function () {
+    const panel = $('settings-panel');
+    if (!panel) return;
+    const D = S.Settings.data;
+    const block = (title, hint) =>
+      '<div class="set-block"><div class="set-title">' + title + '</div>' +
+      (hint ? '<div class="set-hint">' + hint + '</div>' : '') + '<div class="set-rows"></div></div>';
+
+    // 滑块行
+    const slider = (key, label, min, max, step, fmt) => {
+      const v = D[key];
+      return '<label class="set-row"><span class="set-label">' + label + '</span>' +
+        '<input type="range" data-k="' + key + '" min="' + min + '" max="' + max + '" step="' + step + '" value="' + v + '">' +
+        '<b class="set-val" data-v="' + key + '">' + (fmt ? fmt(v) : v) + '</b></label>';
+    };
+    // 开关行
+    const toggle = (key, label) =>
+      '<label class="set-row"><span class="set-label">' + label + '</span>' +
+      '<input type="checkbox" data-k="' + key + '" class="set-chk"' + (D[key] ? ' checked' : '') + '></label>';
+    // 下拉行
+    const select = (key, label, opts) =>
+      '<label class="set-row"><span class="set-label">' + label + '</span>' +
+      '<select data-k="' + key + '" class="set-sel">' +
+      opts.map(o => '<option value="' + o.v + '"' + (D[key] === o.v ? ' selected' : '') + '>' + o.t + '</option>').join('') +
+      '</select></label>';
+
+    panel.innerHTML =
+      '<div class="set-head"><span class="set-h1">设置</span><button id="set-close" class="set-close">✕</button></div>' +
+      '<div class="set-scroll">' +
+      block('视角与操作', '开放世界常见手感调节') +
+      block('画面与声音') +
+      '</div>' +
+      '<div class="set-foot"><button id="set-reset" class="set-reset">恢复默认</button>' +
+      '<span class="set-tip">设置自动保存到本机</span></div>';
+
+    const r1 = panel.querySelector('.set-block:nth-child(1) .set-rows');
+    r1.innerHTML =
+      slider('lookSensitivity', '滑动视角灵敏度', 0.3, 3.0, 0.1, v => v.toFixed(1) + '×') +
+      slider('moveSensitivity', '移动灵敏度', 0.4, 2.0, 0.1, v => v.toFixed(1) + '×') +
+      slider('cameraDist', '相机距离', 0.6, 1.6, 0.1, v => v.toFixed(1) + '×') +
+      toggle('invertY', '反转视角（上下）') +
+      toggle('invertX', '反转视角（左右）') +
+      toggle('invertMove', '反转移动方向');
+
+    const r2 = panel.querySelector('.set-block:nth-child(2) .set-rows');
+    r2.innerHTML =
+      slider('volume', '音量', 0, 1, 0.05, v => Math.round(v * 100) + '%') +
+      select('quality', '画质', [
+        { v: 'high', t: '高（阴影·高像素比）' },
+        { v: 'medium', t: '中（平衡）' },
+        { v: 'low', t: '低（更流畅）' }
+      ]);
+
+    // 绑定事件
+    panel.querySelectorAll('input[data-k]').forEach(inp => {
+      const k = inp.dataset.k;
+      const handler = () => {
+        let val;
+        if (inp.type === 'checkbox') val = inp.checked;
+        else if (inp.type === 'range') val = parseFloat(inp.value);
+        else val = inp.value;
+        S.Settings.set(k, val);
+        const vEl = panel.querySelector('.set-val[data-v="' + k + '"]');
+        if (vEl) {
+          const fmt = k === 'volume' ? (v => Math.round(v * 100) + '%')
+            : (v => (typeof v === 'number' ? v.toFixed(1) + '×' : v));
+          vEl.textContent = fmt(val);
+        }
+      };
+      inp.addEventListener('input', handler);
+      inp.addEventListener('change', handler);
+    });
+    panel.querySelectorAll('select[data-k]').forEach(sel => {
+      sel.addEventListener('change', () => S.Settings.set(sel.dataset.k, sel.value));
+    });
+
+    $('set-close').onclick = () => this.closeSettings();
+    $('set-reset').onclick = () => {
+      S.Settings.reset();
+      this.openSettings();   // 重建以反映默认值
+    };
+
+    // Esc 关闭
+    this._setEsc = e => { if (e.code === 'Escape') this.closeSettings(); };
+    window.addEventListener('keydown', this._setEsc);
+
+    this._settingsOpen = true;
+    this.mode = 'settings';     // 占用 UI.mode，使玩家移动/交互在设置期间暂停
+    panel.classList.remove('hidden');
+    SFX.open();
+  };
+
+  UI.closeSettings = function () {
+    const panel = $('settings-panel');
+    if (panel) panel.classList.add('hidden');
+    this._settingsOpen = false;
+    if (this.mode === 'settings') this.mode = null;
+    if (this._setEsc) { window.removeEventListener('keydown', this._setEsc); this._setEsc = null; }
+  };
+
+  UI.isSettingsOpen = function () { return !!this._settingsOpen; };
 
   /* 任务导航箭头：根据目标在屏幕上的投影，指向并提示距离。
    * sx,sy 为目标屏幕坐标；onScreen 表示目标是否落在可视范围内 */

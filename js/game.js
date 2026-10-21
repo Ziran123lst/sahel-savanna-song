@@ -54,9 +54,11 @@
 
     World.init(canvas);
     S.Models.init();
+    if (S.Settings) S.Settings.load();        // 读取本地偏好
     Player.create(World.scene);
     Player.bindInput(canvas);
     UI.init(this);
+    if (S.Settings) S.Settings.applyAll();     // 应用音量/画质等即时项
     this.bindKeys();
 
     const ld = document.getElementById('ld-progress');
@@ -78,15 +80,15 @@
     }).then(() => {
       // 接入玩家动画模型（失败则保留占位胶囊）
       Player.setupModel(S.Models._gltfs['vendor/models/farmer.glb']);
-      // 生成村民（需先预加载角色模型）
-      if (S.NPCs && S.NPCs.create) S.NPCs.create(World.scene);
       if (ld) ld.style.width = '55%';
 
-      // 2) 构建世界（含散布的牲畜）
+      // 2) 构建世界（含散布的牲畜与地形）；地形/障碍就绪后再生成村民，
+      //    这样村民既能避开建筑，又能用向下射线贴合“可见地形表面”消除悬浮。
       World.build((label, p) => {
         tip.textContent = label;
         if (ld) ld.style.width = Math.round(55 + p * 40) + '%';
       }).then(() => {
+        if (S.NPCs && S.NPCs.create) S.NPCs.create(World.scene);
         if (ld) ld.style.width = '100%';
         tip.textContent = '准备好了。';
         setTimeout(() => {
@@ -628,11 +630,11 @@
         if (!UI.mode) this.tryInteract();
       } else if (code === 'Tab' || code === 'KeyJ') {
         e.preventDefault();
-        if (UI.mode === 'overlay') UI.closeOverlay(); else UI.journal();
+        if (UI.mode) { if (UI.mode === 'overlay') UI.closeOverlay(); } else UI.journal();
       } else if (code === 'KeyN') {
-        if (UI.mode === 'overlay') UI.closeOverlay(); else UI.notes();
+        if (UI.mode) { if (UI.mode === 'overlay') UI.closeOverlay(); } else UI.notes();
       } else if (code === 'KeyH') {
-        if (UI.mode === 'overlay') UI.closeOverlay(); else UI.help();
+        if (UI.mode) { if (UI.mode === 'overlay') UI.closeOverlay(); } else UI.help();
       } else if (code === 'KeyV') {
         if (!UI.mode) this.toggleView();
       } else if (code === 'Escape') {

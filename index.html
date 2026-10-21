@@ -33,6 +33,7 @@
     <button class="hud-btn" id="btn-journal" title="任务日志 (Tab)">📜 日志</button>
     <button class="hud-btn" id="btn-notes" title="地理笔记 (N)">📘 笔记</button>
     <button class="hud-btn" id="btn-view" title="切换第一/第三人称 (V)">👁 视角</button>
+    <button class="hud-btn" id="btn-settings" title="设置 (Esc)">⚙ 设置</button>
     <button class="hud-btn" id="btn-help" title="操作说明 (H)">⌨ 操作</button>
   </div>
 </div>
@@ -114,6 +115,9 @@
   </div>
 </div>
 
+<!-- ============ 设置面板 ============ -->
+<div id="settings-panel" class="hidden"></div>
+
 <!-- ESM：单一 three 实例 + GLTFLoader，加载完成后按顺序注入经典脚本 -->
 <script type="importmap">
 {
@@ -131,10 +135,10 @@
   window.THREE = THREE;
   window.GLTFLoader = GLTFLoader;
   window.SkeletonUtils = { clone: cloneSkeleton };
-  const scripts = [
-    'js/config.js', 'js/quiz.js', 'js/story.js', 'js/world.js',
-    'js/loader.js', 'js/player.js', 'js/npcs.js', 'js/ui.js', 'js/game.js'
-  ];
+    const scripts = [
+      'js/config.js', 'js/settings.js', 'js/quiz.js', 'js/story.js', 'js/world.js',
+      'js/loader.js', 'js/player.js', 'js/npcs.js', 'js/ui.js', 'js/game.js'
+    ];
   (async () => {
     for (const src of scripts) {
       await new Promise((res, rej) => {

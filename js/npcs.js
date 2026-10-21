@@ -156,7 +156,7 @@
       let fromGLB = !!g;
       if (!g) g = buildPerson(spec, rng);   // 模型缺失时降级
 
-      const y = heightAt(cl.x, cl.z);
+      const y = S.World.groundY(cl.x, cl.z); // 贴合“可见地形表面”，消除悬浮
       g.position.x = cl.x;
       g.position.z = cl.z;
       g.position.y += y;                     // 脚底落到地面

@@ -7,6 +7,8 @@
   'use strict';
   const S = global.SOS;
   const { clamp, lerp, heightAt } = S;
+  // 读取玩家设置（本地持久化）；缺失时回落到中性默认值
+  const SET = () => ((S.Settings && S.Settings.data) || {});
 
   const Player = {
     group: null,
@@ -17,7 +19,7 @@
     pos: new THREE.Vector3(4, 0, 68),
     yaw: Math.PI,          // 相机水平角
     pitch: 0.34,
-    dist: 4.6,
+    dist: 3.9,
     facing: Math.PI,
     speed: 0,
     moving: false,
@@ -63,7 +65,7 @@
     // 按包围盒归一化身高，并把脚底对齐到本地 y=0（不同模型原生单位差异巨大）
     const box = new THREE.Box3().setFromObject(m);
     const size = new THREE.Vector3(); box.getSize(size);
-    const TARGET_H = 2.1;    // 略大于真人，提升第三人称下的存在感
+    const TARGET_H = 2.5;    // 略大于真人，提升第三人称下的存在感与辨识度
     const s = TARGET_H / (size.y || TARGET_H);
     m.scale.setScalar(s);
     const box2 = new THREE.Box3().setFromObject(m);
@@ -154,14 +156,22 @@
         // 双指：中点移动 → 旋转；间距变化 → 缩放（看向与缩放互不打架）
         const p = [...pts.values()];
         const mx = (p[0].x + p[1].x) / 2, my = (p[0].y + p[1].y) / 2;
-        this.yaw -= (mx - pinch.mx) * 0.005;
-        this.pitch = clamp(this.pitch - (my - pinch.my) * 0.004, -1.0, 1.2);
+        const sd = SET();
+        const ls = sd.lookSensitivity != null ? sd.lookSensitivity : 1;
+        const ixk = sd.invertX ? -1 : 1;
+        const iyk = sd.invertY ? -1 : 1;
+        this.yaw -= (mx - pinch.mx) * 0.005 * ls * ixk;
+        this.pitch = clamp(this.pitch - (my - pinch.my) * 0.004 * ls * iyk, -1.0, 1.2);
         const dist = Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y);
         this.dist = clamp(this.dist + (pinch.dist - dist) * 0.02, 2.4, 15);
         pinch.mx = mx; pinch.my = my; pinch.dist = dist;
       } else if (pts.size === 1 && glance) {
-        this.yaw -= dx * 0.0045;
-        this.pitch = clamp(this.pitch + dy * 0.0034, -1.0, 1.2);
+        const sd = SET();
+        const ls = sd.lookSensitivity != null ? sd.lookSensitivity : 1;
+        const ixk = sd.invertX ? -1 : 1;
+        const iyk = sd.invertY ? -1 : 1;
+        this.yaw -= dx * 0.0045 * ls * ixk;
+        this.pitch = clamp(this.pitch + dy * 0.0034 * ls * iyk, -1.0, 1.2);
       }
     };
     const onCamUp = e => {
@@ -194,13 +204,20 @@
   /* ---------------- 每帧 ---------------- */
   Player.update = function (dt, camera) {
     const k = this.keys;
+    const sd = SET();
+    const ms = sd.moveSensitivity != null ? sd.moveSensitivity : 1;   // 摇杆移动灵敏度
+    const im = sd.invertMove ? -1 : 1;                                // 反转前后
+    const cd = sd.cameraDist != null ? sd.cameraDist : 1;             // 相机距离系数
     let ix = 0, iz = 0;
     if (this.enabled) {
       if (k['KeyW'] || k['ArrowUp']) iz += 1;
       if (k['KeyS'] || k['ArrowDown']) iz -= 1;
       if (k['KeyA'] || k['ArrowLeft']) ix -= 1;
       if (k['KeyD'] || k['ArrowRight']) ix += 1;
-      if (this._touch) { ix += this._touch.x; iz -= this._touch.y; }
+      if (this._touch) {
+        let tx = this._touch.x * ms, ty = this._touch.y * ms;
+        ix += tx; iz -= ty * im;
+      }
     }
     const mag = Math.hypot(ix, iz);
     if (mag > 1) { ix /= mag; iz /= mag; }
@@ -276,9 +293,10 @@
       this.camTarget.set(this.pos.x + dirX * 12, headY + dirY * 12, this.pos.z + dirZ * 12);
       camera.lookAt(this.camTarget);
     } else {
-      const wantX = this.pos.x + Math.sin(this.yaw) * cosP * this.dist;
-      const wantZ = this.pos.z + Math.cos(this.yaw) * cosP * this.dist;
-      const wantY = this.pos.y + 1.42 + sinP * this.dist;
+      const camDist = this.dist * cd;
+      const wantX = this.pos.x + Math.sin(this.yaw) * cosP * camDist;
+      const wantZ = this.pos.z + Math.cos(this.yaw) * cosP * camDist;
+      const wantY = this.pos.y + 1.42 + sinP * camDist;
       if (!this._camInit) { this._camPos.set(wantX, wantY, wantZ); this._camInit = true; }
       this._camPos.x = lerp(this._camPos.x, wantX, Math.min(dt * 11, 1));
       this._camPos.y = lerp(this._camPos.y, wantY, Math.min(dt * 11, 1));

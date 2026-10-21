@@ -131,6 +131,42 @@
     this.renderer.setSize(window.innerWidth, window.innerHeight);
   };
 
+  /* 向下射线检测地形网格，返回“可见表面”的真实高度。
+   * 比 heightAt 更准：heightAt 是平滑解析面，而渲染网格在顶点之间是线性插值，
+   * 二者在顶点之外略有差异；用射线贴合可见网格可彻底消除 NPC/物体“悬浮”。 */
+  World.groundY = function (x, z) {
+    if (!this._gRay) { this._gRay = new THREE.Raycaster(); this._gDown = new THREE.Vector3(0, -1, 0); }
+    if (this.ground) {
+      this.ground.updateMatrixWorld(true);
+      this._gRay.set(new THREE.Vector3(x, 1000, z), this._gDown);
+      const hits = this._gRay.intersectObject(this.ground, false);
+      if (hits.length) return hits[0].point.y;
+    }
+    return heightAt(x, z);
+  };
+
+  /* 画质设置：high / medium / low —— 实时调整像素比、阴影与阴影贴图分辨率 */
+  World.applyQuality = function (q) {
+    if (!this.renderer) return;
+    const dpr = window.devicePixelRatio || 1;
+    const r = this.renderer;
+    if (q === 'low') {
+      r.setPixelRatio(1);
+      r.shadowMap.enabled = false;
+      if (this.sun) this.sun.castShadow = false;
+    } else if (q === 'medium') {
+      r.setPixelRatio(Math.min(dpr, 1.5));
+      r.shadowMap.enabled = true;
+      if (this.sun) { this.sun.castShadow = true; this.sun.shadow.mapSize.set(1024, 1024); }
+    } else {
+      r.setPixelRatio(Math.min(dpr, 2));
+      r.shadowMap.enabled = true;
+      if (this.sun) { this.sun.castShadow = true; this.sun.shadow.mapSize.set(2048, 2048); }
+    }
+    if (this.sun && this.sun.shadow.map) { this.sun.shadow.map.dispose(); this.sun.shadow.map = null; }
+    r.shadowMap.needsUpdate = true;
+  };
+
   /* ============ 地形 ============ */
   function buildGround() {
     const geo = new THREE.PlaneGeometry(WORLD.size, WORLD.size, WORLD.seg, WORLD.seg);

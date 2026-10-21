@@ -19,7 +19,7 @@
     pos: new THREE.Vector3(4, 0, 68),
     yaw: Math.PI,          // 相机水平角
     pitch: 0.34,
-    dist: 3.0,
+    dist: 2.7,
     facing: Math.PI,
     speed: 0,
     moving: false,

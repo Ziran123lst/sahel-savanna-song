@@ -110,7 +110,7 @@
     moussa: 'farmer', boubacar: 'farmer', souleymane: 'farmer',
     issa: 'adventurer', idrissa: 'adventurer'
   };
-  const TARGET_H = 1.9;   // 角色目标身高（米），与方块人一致
+  const TARGET_H = 2.5;   // 角色目标身高（米），与主角比例协调
 
   // 从已预加载的 GLB 克隆一个可独立动画的角色；失败返回 null
   function buildGLBPerson(spec, rng) {

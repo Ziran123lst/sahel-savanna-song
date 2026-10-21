@@ -19,7 +19,7 @@
     pos: new THREE.Vector3(4, 0, 68),
     yaw: Math.PI,          // 相机水平角
     pitch: 0.34,
-    dist: 3.9,
+    dist: 3.0,
     facing: Math.PI,
     speed: 0,
     moving: false,
@@ -35,17 +35,19 @@
     _onGround: true,
     _touch: null,
     _bobPhase: 0,
-    MODEL_YAW: Math.PI    // glTF 角色正面为 -Z，需 +PI 才能面向移动方向
+    MODEL_YAW: 0          // 模型实际正面为 +Z：rotation.y = facing 即让角色面向移动方向（背对镜头）
   };
 
   /* ---------------- 建模（占位，模型就绪后替换） ---------------- */
   Player.create = function (scene) {
     this.group = new THREE.Group();
+    // 占位体：脚底贴地的“人形”胶囊（身高约 3.0m）。
+    // 即便 GLB 加载失败，也不会出现“又小又飘”的小胶囊。
     const ph = new THREE.Mesh(
-      new THREE.CapsuleGeometry(0.32, 0.9, 4, 8),
+      new THREE.CapsuleGeometry(0.45, 2.1, 6, 12),
       new THREE.MeshLambertMaterial({ color: 0x3f6ea8 })
     );
-    ph.position.y = 1.0; ph.castShadow = true;
+    ph.position.y = 1.5; ph.castShadow = true;
     this._placeholder = ph;
     this.group.add(ph);
     scene.add(this.group);
@@ -65,7 +67,7 @@
     // 按包围盒归一化身高，并把脚底对齐到本地 y=0（不同模型原生单位差异巨大）
     const box = new THREE.Box3().setFromObject(m);
     const size = new THREE.Vector3(); box.getSize(size);
-    const TARGET_H = 2.5;    // 略大于真人，提升第三人称下的存在感与辨识度
+    const TARGET_H = 3.0;    // 略大于真人，提升第三人称下的存在感与辨识度
     const s = TARGET_H / (size.y || TARGET_H);
     m.scale.setScalar(s);
     const box2 = new THREE.Box3().setFromObject(m);
@@ -206,6 +208,9 @@
     const k = this.keys;
     const sd = SET();
     const ms = sd.moveSensitivity != null ? sd.moveSensitivity : 1;   // 摇杆移动灵敏度
+    // 取地面高度：优先用可见地形网格的向下射线（贴合真实表面，消除斜坡悬浮）；
+    // 退化到平滑 heightAt。
+    const groundH = (x, z) => ((S.World && S.World.groundY) ? S.World.groundY(x, z) : heightAt(x, z));
     const im = sd.invertMove ? -1 : 1;                                // 反转前后
     const cd = sd.cameraDist != null ? sd.cameraDist : 1;             // 相机距离系数
     let ix = 0, iz = 0;
@@ -248,12 +253,13 @@
     if (!this._onGround) {
       this._vy -= 16 * dt;
       this.pos.y += this._vy * dt;
-      if (this.pos.y <= heightAt(this.pos.x, this.pos.z)) {
-        this.pos.y = heightAt(this.pos.x, this.pos.z);
+      const gy = groundH(this.pos.x, this.pos.z);
+      if (this.pos.y <= gy) {
+        this.pos.y = gy;
         this._vy = 0; this._onGround = true;
       }
     } else {
-      const gy = heightAt(this.pos.x, this.pos.z);
+      const gy = groundH(this.pos.x, this.pos.z);
       this.pos.y = lerp(this.pos.y, gy, Math.min(dt * 12, 1));
     }
 
@@ -278,7 +284,7 @@
       this.mixer.update(dt * (this.moving ? (this.running ? 1.15 : 0.85) : 1));
     } else if (this._placeholder && this.moving) {
       this._bobPhase += dt * 10;
-      this._placeholder.position.y = 1.0 + Math.abs(Math.sin(this._bobPhase)) * 0.06;
+      this._placeholder.position.y = 1.5 + Math.abs(Math.sin(this._bobPhase)) * 0.06;
     }
 
     // 相机
@@ -310,7 +316,8 @@
   };
 
   Player.teleport = function (x, z) {
-    this.pos.set(x, heightAt(x, z), z);
+    const gy = (S.World && S.World.groundY) ? S.World.groundY(x, z) : heightAt(x, z);
+    this.pos.set(x, gy, z);
     this.group.position.copy(this.pos);
     this._camInit = false;
   };

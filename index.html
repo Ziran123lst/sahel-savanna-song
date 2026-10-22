@@ -139,11 +139,12 @@
       'js/config.js', 'js/settings.js', 'js/quiz.js', 'js/story.js', 'js/world.js',
       'js/loader.js', 'js/player.js', 'js/npcs.js', 'js/ui.js', 'js/game.js'
     ];
+    const GAME_VER = 'v20251021c';   // 每次发布变更，强制刷新缓存
   (async () => {
     for (const src of scripts) {
       await new Promise((res, rej) => {
         const el = document.createElement('script');
-        el.src = src;
+        el.src = src + '?v=' + GAME_VER;
         el.onload = res;
         el.onerror = () => rej(new Error('脚本加载失败：' + src));
         document.body.appendChild(el);

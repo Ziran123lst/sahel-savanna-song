@@ -110,7 +110,7 @@
     moussa: 'farmer', boubacar: 'farmer', souleymane: 'farmer',
     issa: 'adventurer', idrissa: 'adventurer'
   };
-  const TARGET_H = 2.5;   // 角色目标身高（米），与主角比例协调
+  const TARGET_H = 2.9;   // 角色目标身高（米），与主角比例协调
 
   // 从已预加载的 GLB 克隆一个可独立动画的角色；失败返回 null
   function buildGLBPerson(spec, rng) {
@@ -125,6 +125,11 @@
       console.warn('[NPCs] 骨骼克隆失败，降级方块人：', spec.id, e);
       return null;
     }
+    // 关键：克隆后蒙皮网格骨骼世界矩阵尚未就绪，必须显式更新，
+    // 否则 Box3.setFromObject 用到的 boneMatrices 是错的→尺寸/脚底全算歪（悬空）。
+    g.updateMatrixWorld(true);
+    g.traverse(o => { if (o.isSkinnedMesh && o.skeleton) o.skeleton.update(); });
+    g.updateMatrixWorld(true);
     // 归一化到目标身高，并把脚底对齐到本地 y=0
     const box = new THREE.Box3().setFromObject(g);
     const size = new THREE.Vector3(); box.getSize(size);

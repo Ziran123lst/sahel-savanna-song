@@ -6,6 +6,11 @@
 (function (global) {
   'use strict';
 
+  // 版本号：每次发布都会改变，强制浏览器重新拉取最新 JS 与模型，
+  // 避免 GitHub Pages / 浏览器缓存导致“改动不生效”。
+  const GAME_VER = 'v20251021c';
+  const vurl = p => p + (p.indexOf('?') >= 0 ? '&' : '?') + 'v=' + GAME_VER;
+
   const Models = {
     _gltfs: {},
     loader: null,
@@ -15,15 +20,16 @@
     },
 
     preload(path) {
+      const url = vurl(path);
       return new Promise((resolve) => {
-        if (Object.prototype.hasOwnProperty.call(this._gltfs, path)) return resolve(this._gltfs[path]);
+        if (Object.prototype.hasOwnProperty.call(this._gltfs, url)) return resolve(this._gltfs[url]);
         this.loader.load(
-          path,
-          g => { this._gltfs[path] = g; resolve(g); },
+          url,
+          g => { this._gltfs[url] = g; resolve(g); },
           undefined,
           err => {
             console.warn('[Models] 加载失败，降级为占位模型：', path, err);
-            this._gltfs[path] = null;   // 标记失败，避免重复请求
+            this._gltfs[url] = null;   // 标记失败，避免重复请求
             resolve(null);
           }
         );
@@ -42,14 +48,14 @@
 
     // 取已预加载的 gltf（未加载返回 null）
     get(path) {
-      return this._gltfs[path] || null;
+      return this._gltfs[vurl(path)] || null;
     },
 
     // 返回一个独立克隆的场景（用于可重复放置的动物模型）。
     // 必须用 SkeletonUtils.clone，否则带骨骼的 SkinnedMesh 用 .clone(true)
     // 会共用同一份 skeleton → 渲染错位、体积巨大、原地乱转。
     instance(path) {
-      const g = this._gltfs[path];
+      const g = this._gltfs[vurl(path)];
       if (!g) return null;
       let scene;
       try {

@@ -19,7 +19,7 @@
     pos: new THREE.Vector3(4, 0, 68),
     yaw: Math.PI,          // 相机水平角
     pitch: 0.34,
-    dist: 2.7,
+    dist: 2.5,
     facing: Math.PI,
     speed: 0,
     moving: false,
@@ -64,10 +64,17 @@
     const m = gltf.scene;
     m.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
 
+    // 关键：克隆后的蒙皮网格骨骼世界矩阵尚未就绪，必须显式更新，
+    // 否则 Box3.setFromObject 用到的 boneMatrices 是错的——
+    // 会导致 size.y 偏大→模型被缩得太小、脚底偏移算错→悬空。
+    m.updateMatrixWorld(true);
+    m.traverse(o => { if (o.isSkinnedMesh && o.skeleton) o.skeleton.update(); });
+    m.updateMatrixWorld(true);
+
     // 按包围盒归一化身高，并把脚底对齐到本地 y=0（不同模型原生单位差异巨大）
     const box = new THREE.Box3().setFromObject(m);
     const size = new THREE.Vector3(); box.getSize(size);
-    const TARGET_H = 3.0;    // 略大于真人，提升第三人称下的存在感与辨识度
+    const TARGET_H = 3.4;    // 略大于真人，提升第三人称下的存在感与辨识度
     const s = TARGET_H / (size.y || TARGET_H);
     m.scale.setScalar(s);
     const box2 = new THREE.Box3().setFromObject(m);

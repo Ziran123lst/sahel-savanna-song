@@ -4,7 +4,7 @@
 (function (global) {
   'use strict';
   const S = global.SOS;
-  const { COLOR, heightAt, dist2, clamp } = S;
+  const { COLOR, heightAt, dist2, clamp, INTERACTION_RADIUS } = S;
 
   const NPCs = { list: [] };
 
@@ -98,7 +98,8 @@
     g.add(eye);
 
     g.userData.parts = { legL, legR, armL, armR, torso, head };
-    g.userData.h = h;
+    g.userData.height = h * 2.0;
+    g.userData.h = g.userData.height;
     return g;
   }
 
@@ -106,11 +107,11 @@
    * 女性统一用 woman，男性用 farmer / adventurer 两类以增加多样性。 */
   const MODEL_KEYS = {
     aicha: 'woman', fatima: 'woman', aminata: 'woman', awa: 'woman',
-    brahime: 'woman', halima: 'woman', kadi: 'woman', fatou: 'woman',
+    brahim: 'woman', brahime: 'woman', halima: 'woman', kadi: 'woman', fatou: 'woman',
     moussa: 'farmer', boubacar: 'farmer', souleymane: 'farmer',
     issa: 'adventurer', idrissa: 'adventurer'
   };
-  const TARGET_H = 2.9;   // 角色目标身高（米），与主角比例协调
+  const TARGET_H = 1.8;   // 按真实成年人身高归一化
 
   // 从已预加载的 GLB 克隆一个可独立动画的角色；失败返回 null
   function buildGLBPerson(spec, rng) {
@@ -134,7 +135,8 @@
     const box = new THREE.Box3().setFromObject(g);
     const size = new THREE.Vector3(); box.getSize(size);
     const s = TARGET_H / (size.y || TARGET_H);
-    g.scale.setScalar(s * (0.94 + (rng() - 0.5) * 0.1));
+    const variation = 0.94 + (rng() - 0.5) * 0.1;
+    g.scale.setScalar(s * variation);
     const box2 = new THREE.Box3().setFromObject(g);
     g.position.y = -box2.min.y;
 
@@ -146,7 +148,8 @@
       mixer.clipAction(idle).play();
     }
     g.userData.mixer = mixer;
-    g.userData.h = 0.94;
+    g.userData.height = TARGET_H * variation;
+    g.userData.h = g.userData.height;
     return g;
   }
 
@@ -168,19 +171,19 @@
       g.rotation.y = Math.atan2(0 - cl.x, 0 - cl.z) + (rng() - 0.5) * 0.6;
 
       const label = makeLabel(spec.name, spec.role);
-      label.position.y = 2.45 * g.userData.h;
+      label.position.y = g.userData.height + 0.28;
       g.add(label);
 
       // 交互提示标记
       const mkGeo = new THREE.ConeGeometry(0.22, 0.5, 4);
       mkGeo.rotateX(Math.PI);
       const mk = new THREE.Mesh(mkGeo, new THREE.MeshBasicMaterial({ color: 0xffd477 }));
-      mk.position.y = 2.15 * g.userData.h;
+      mk.position.y = g.userData.height + 0.20;
       mk.visible = false;
       g.add(mk);
 
       scene.add(g);
-      const sitting = (spec.id === 'aicha') && !fromGLB;
+        const sitting = (spec.id === 'aicha') && !fromGLB;
       if (sitting) {
         g.userData.parts.legL.rotation.x = -1.35;
         g.userData.parts.legR.rotation.x = -1.35;
@@ -201,7 +204,8 @@
   NPCs.get = function (id) { return NPCs.list.find(n => n.spec.id === id); };
 
   NPCs.nearest = function (pos, maxD) {
-    let best = null, bd = (maxD || 3.6) * (maxD || 3.6);
+    const radius = maxD || INTERACTION_RADIUS;
+    let best = null, bd = radius * radius;
     for (const n of NPCs.list) {
       const dy = Math.abs(pos.y - n.group.position.y);
       if (dy > 4) continue;
@@ -215,10 +219,10 @@
     for (const n of NPCs.list) {
       n.phase += dt * 0.9;
       const p = n.group.userData.parts;          // GLB 角色无此字段
-      const near = Math.sqrt(dist2(playerPos.x, playerPos.z, n.x, n.z)) < 3.6;
+      const near = Math.sqrt(dist2(playerPos.x, playerPos.z, n.x, n.z)) < INTERACTION_RADIUS;
       n.marker.visible = near && !!interactEnabled;
       n.marker.rotation.y += dt * 2.2;
-      n.marker.position.y = 2.15 * n.group.userData.h + Math.sin(n.phase * 2) * 0.14;
+      n.marker.position.y = n.group.userData.height + 0.20 + Math.sin(n.phase * 2) * 0.10;
       if (p && !n.sitting) {
         // 方块人：手臂/躯干轻微摆动
         const sw = Math.sin(n.phase * 0.55) * 0.05;

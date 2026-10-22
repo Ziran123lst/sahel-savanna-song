@@ -220,7 +220,8 @@ kbd{display:inline-block;background:var(--sun);color:#2a1a10;border-radius:5px;p
   background:rgba(232,135,30,.65)}
 #btn-act{position:absolute;right:26px;bottom:36px;width:76px;height:76px;border-radius:50%;
   background:rgba(232,135,30,.8);border:2px solid var(--sand);color:#2a1a10;font-weight:800;font-size:22px;
-  pointer-events:auto;font-family:var(--font)}
+  pointer-events:auto;font-family:var(--font);touch-action:manipulation;user-select:none}
+#btn-act:active{transform:scale(.94)}
 #btn-sprint{position:absolute;right:32px;bottom:128px;width:64px;height:64px;border-radius:50%;
   background:rgba(80,160,90,.82);border:2px solid var(--sand);color:#10240f;font-weight:800;font-size:24px;
   pointer-events:auto;font-family:var(--font);box-shadow:0 0 0 rgba(80,160,90,.5)}

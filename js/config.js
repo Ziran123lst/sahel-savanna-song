@@ -53,6 +53,8 @@
   const lerp = (a, b, t) => a + (b - a) * t;
   const smooth = t => t * t * (3 - 2 * t);
   const dist2 = (ax, az, bx, bz) => { const dx = ax - bx, dz = az - bz; return dx * dx + dz * dz; };
+  // NPC/设施交互统一半径，提示与 F/E 键触发必须使用同一阈值。
+  const INTERACTION_RADIUS = 4.6;
 
   // 确定性伪随机
   function hash2(x, y) {
@@ -164,7 +166,7 @@
   }
 
   global.SOS = {
-    WORLD, SITES, COLOR,
+    WORLD, SITES, COLOR, INTERACTION_RADIUS,
     clamp, lerp, smooth, dist2, hash2, valueNoise, fbm, makeRng,
     heightAt, aridityAt, zoneAt
   };

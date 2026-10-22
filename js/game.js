@@ -5,7 +5,7 @@
   'use strict';
   const S = global.SOS;
   const UI = S.UI, Player = S.Player, World = S.World, NPCs = S.NPCs;
-  const { SITES, NPCS, DIALOGUE, ACTS, PROBES, ENDINGS, clamp, dist2, heightAt } = S;
+  const { SITES, NPCS, DIALOGUE, ACTS, PROBES, ENDINGS, INTERACTION_RADIUS, clamp, dist2, heightAt } = S;
 
   const siteById = id => SITES.find(s => s.id === id);
   // NPCS 是 {list:[]}，没有 find；必须用 NPCs.list.find，且取回的是带 .spec 的列表项
@@ -78,8 +78,9 @@
       tip.textContent = '正在装载牲畜、村民与场景模型… ' + done + '/' + total;
       if (ld) ld.style.width = Math.round((done / total) * 50) + '%';
     }).then(() => {
-      // 接入玩家动画模型（失败则保留占位胶囊）
-      Player.setupModel(S.Models._gltfs['vendor/models/farmer.glb']);
+      // 通过公开接口取模型；loader 内部使用带版本号的缓存键，
+      // 不能直接访问 _gltfs 的未版本化路径，否则会误保留蓝色占位体。
+      Player.setupModel(S.Models.get('vendor/models/farmer.glb'));
       if (ld) ld.style.width = '55%';
 
       // 2) 构建世界（含散布的牲畜与地形）；地形/障碍就绪后再生成村民，
@@ -105,7 +106,9 @@
     document.getElementById('hud').classList.remove('hidden');
     document.getElementById('minimap-wrap').classList.remove('hidden');
     document.getElementById('objective').classList.remove('hidden');
-    if ('ontouchstart' in window) document.getElementById('touch-ui').classList.remove('hidden');
+    const touchCapable = 'ontouchstart' in window || navigator.maxTouchPoints > 0 ||
+      (window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+    if (touchCapable) document.getElementById('touch-ui').classList.remove('hidden');
     this.actIndex = 0; this.stepIndex = 0;
     World.setSeason('dry');
     this.syncHUD();
@@ -446,7 +449,7 @@
 
   /* ================= 交互 ================= */
   Game.tryInteract = function () {
-    if (UI.mode) return;
+    if (!this.started || UI.mode) return;
     const pos = Player.pos;
 
     // 1) 任务相关：探针
@@ -457,7 +460,7 @@
     // 2) 任务要求的对话（优先于世界设施，确保剧情步骤能完成）
     const step = this.currentStep();
     if (step && step.k === 'talk') {
-      const nt = NPCs.nearest(pos, 4.6);
+      const nt = NPCs.nearest(pos, INTERACTION_RADIUS);
       if (nt && nt.spec.id === step.npc) {
         this._talkCompletesStep = true;    // 此对话即为当前任务步骤
         this.talkTo(step.npc, step.node || 'start');
@@ -472,7 +475,7 @@
     if (zone && zone.id === 'nursery') { this.getSeedlings(); return; }
     // 4) 普通 NPC 闲聊（市场区内不拦截，以免挡住卖粮）
     if (!zone || zone.id !== 'market') {
-      const n = NPCs.nearest(pos, 4.6);
+      const n = NPCs.nearest(pos, INTERACTION_RADIUS);
       if (n) { this.talkTo(n.spec.id, 'start'); return; }
     }
     // 5) 任务点（小游戏 / 到达点）
@@ -571,7 +574,7 @@
 
     // 靠近提示
     let prompt = null;
-    const n = NPCs.nearest(Player.pos, 3.4);
+    const n = NPCs.nearest(Player.pos, INTERACTION_RADIUS);
     if (n) prompt = '与 ' + n.spec.name + ' 交谈';
     else {
       for (const p of this.probes) {
@@ -585,7 +588,7 @@
       if (!prompt) {
         const st = this.currentStep();
         if (st && st.k === 'talk') {
-          const nn = NPCs.nearest(Player.pos, 4.6);
+          const nn = NPCs.nearest(Player.pos, INTERACTION_RADIUS);
           if (nn && nn.spec.id === st.npc) prompt = '交谈';
         }
       }
@@ -622,12 +625,19 @@
   };
 
   /* ================= 输入 ================= */
+  Game.handleInteractInput = function (e) {
+    if (e && e.preventDefault) e.preventDefault();
+    if (e && e.repeat) return;
+    if (!this.started || UI.mode) return;
+    this.tryInteract();
+  };
+
   Game.bindKeys = function () {
     this._asked = new Set();
     window.addEventListener('keydown', e => {
       const code = e.code;
       if (code === 'KeyF' || code === 'KeyE') {
-        if (!UI.mode) this.tryInteract();
+        this.handleInteractInput(e);
       } else if (code === 'Tab' || code === 'KeyJ') {
         e.preventDefault();
         if (UI.mode) { if (UI.mode === 'overlay') UI.closeOverlay(); } else UI.journal();
@@ -653,7 +663,11 @@
       }
     });
       const ba = document.getElementById('btn-act');
-      if (ba) ba.addEventListener('click', () => { if (!UI.mode) this.tryInteract(); });
+      if (ba) {
+        ba.addEventListener('pointerup', e => this.handleInteractInput(e));
+        // 兼容没有 Pointer Events 的旧 WebView，避免与 pointerup 重复触发。
+        if (!window.PointerEvent) ba.addEventListener('click', e => this.handleInteractInput(e));
+      }
     };
 
   Game.toggleView = function () {

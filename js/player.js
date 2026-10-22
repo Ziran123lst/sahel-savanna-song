@@ -19,7 +19,7 @@
     pos: new THREE.Vector3(4, 0, 68),
     yaw: Math.PI,          // 相机水平角
     pitch: 0.34,
-    dist: 2.5,
+    dist: 4.0,
     facing: Math.PI,
     speed: 0,
     moving: false,
@@ -44,10 +44,10 @@
     // 占位体：脚底贴地的“人形”胶囊（身高约 3.0m）。
     // 即便 GLB 加载失败，也不会出现“又小又飘”的小胶囊。
     const ph = new THREE.Mesh(
-      new THREE.CapsuleGeometry(0.45, 2.1, 6, 12),
+      new THREE.CapsuleGeometry(0.28, 1.34, 6, 12),
       new THREE.MeshLambertMaterial({ color: 0x3f6ea8 })
     );
-    ph.position.y = 1.5; ph.castShadow = true;
+    ph.position.y = 0.95; ph.castShadow = true;
     this._placeholder = ph;
     this.group.add(ph);
     scene.add(this.group);
@@ -74,7 +74,7 @@
     // 按包围盒归一化身高，并把脚底对齐到本地 y=0（不同模型原生单位差异巨大）
     const box = new THREE.Box3().setFromObject(m);
     const size = new THREE.Vector3(); box.getSize(size);
-    const TARGET_H = 3.4;    // 略大于真人，提升第三人称下的存在感与辨识度
+    const TARGET_H = 1.9;    // 按真实成年人身高归一化
     const s = TARGET_H / (size.y || TARGET_H);
     m.scale.setScalar(s);
     const box2 = new THREE.Box3().setFromObject(m);
@@ -172,7 +172,7 @@
         this.yaw -= (mx - pinch.mx) * 0.005 * ls * ixk;
         this.pitch = clamp(this.pitch - (my - pinch.my) * 0.004 * ls * iyk, -1.0, 1.2);
         const dist = Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y);
-        this.dist = clamp(this.dist + (pinch.dist - dist) * 0.02, 2.4, 15);
+        this.dist = clamp(this.dist + (pinch.dist - dist) * 0.02, 3.0, 15);
         pinch.mx = mx; pinch.my = my; pinch.dist = dist;
       } else if (pts.size === 1 && glance) {
         const sd = SET();
@@ -194,7 +194,7 @@
     window.addEventListener('pointercancel', onCamUp);
 
     canvas.addEventListener('wheel', e => {
-      this.dist = clamp(this.dist + e.deltaY * 0.006, 2.4, 15);
+      this.dist = clamp(this.dist + e.deltaY * 0.006, 3.0, 15);
       e.preventDefault();
     }, { passive: false });
 
@@ -291,7 +291,7 @@
       this.mixer.update(dt * (this.moving ? (this.running ? 1.15 : 0.85) : 1));
     } else if (this._placeholder && this.moving) {
       this._bobPhase += dt * 10;
-      this._placeholder.position.y = 1.5 + Math.abs(Math.sin(this._bobPhase)) * 0.06;
+      this._placeholder.position.y = 0.95 + Math.abs(Math.sin(this._bobPhase)) * 0.04;
     }
 
     // 相机
@@ -309,15 +309,15 @@
       const camDist = this.dist * cd;
       const wantX = this.pos.x + Math.sin(this.yaw) * cosP * camDist;
       const wantZ = this.pos.z + Math.cos(this.yaw) * cosP * camDist;
-      const wantY = this.pos.y + 1.42 + sinP * camDist;
+      const wantY = this.pos.y + 0.92 + sinP * camDist;
       if (!this._camInit) { this._camPos.set(wantX, wantY, wantZ); this._camInit = true; }
       this._camPos.x = lerp(this._camPos.x, wantX, Math.min(dt * 11, 1));
       this._camPos.y = lerp(this._camPos.y, wantY, Math.min(dt * 11, 1));
       this._camPos.z = lerp(this._camPos.z, wantZ, Math.min(dt * 11, 1));
-      const gy = heightAt(this._camPos.x, this._camPos.z) + 1.3;
+      const gy = heightAt(this._camPos.x, this._camPos.z) + 0.75;
       if (this._camPos.y < gy) this._camPos.y = gy;
       camera.position.copy(this._camPos);
-      this.camTarget.set(this.pos.x, this.pos.y + 1.45, this.pos.z);
+      this.camTarget.set(this.pos.x, this.pos.y + 0.98, this.pos.z);
       camera.lookAt(this.camTarget);
     }
   };

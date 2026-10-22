@@ -102,7 +102,7 @@
 <div id="touch-ui" class="hidden">
   <div id="stick"><i></i></div>
   <button id="btn-sprint" title="疾跑（按住）">🏃</button>
-  <button id="btn-act">F</button>
+  <button id="btn-act" type="button" aria-label="交互">F</button>
 </div>
 
 <div id="loading">
@@ -139,7 +139,7 @@
       'js/config.js', 'js/settings.js', 'js/quiz.js', 'js/story.js', 'js/world.js',
       'js/loader.js', 'js/player.js', 'js/npcs.js', 'js/ui.js', 'js/game.js'
     ];
-    const GAME_VER = 'v20251021c';   // 每次发布变更，强制刷新缓存
+    const GAME_VER = 'v20251021d';   // 每次发布变更，强制刷新缓存
   (async () => {
     for (const src of scripts) {
       await new Promise((res, rej) => {

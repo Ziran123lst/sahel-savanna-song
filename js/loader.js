@@ -1,14 +1,14 @@
 /* ================================================================
  *  loader.js —— GLB 模型预加载（基于 GLTFLoader）
  *  通过 window.GLTFLoader 加载；preloadAll 并行加载并回报进度。
- *  场景中的动物用 instance() 克隆（SkeletonUtils）；玩家与 NPC 直接用 _gltfs 原实例克隆。
+ *  场景中的动物用 instance() 克隆（SkeletonUtils）；玩家与 NPC 统一通过公开接口取模型。
  * ================================================================ */
 (function (global) {
   'use strict';
 
   // 版本号：每次发布都会改变，强制浏览器重新拉取最新 JS 与模型，
   // 避免 GitHub Pages / 浏览器缓存导致“改动不生效”。
-  const GAME_VER = 'v20251021c';
+  const GAME_VER = 'v20251021d';
   const vurl = p => p + (p.indexOf('?') >= 0 ? '&' : '?') + 'v=' + GAME_VER;
 
   const Models = {

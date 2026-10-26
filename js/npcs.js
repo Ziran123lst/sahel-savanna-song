@@ -137,6 +137,11 @@
     const s = TARGET_H / (size.y || TARGET_H);
     const variation = 0.94 + (rng() - 0.5) * 0.1;
     g.scale.setScalar(s * variation);
+    // 缩放后必须显式刷新世界矩阵，否则 Box3 用到的是旧 scale 的 boneMatrices，
+    // 导致 size/min.y 算错 → NPC 脚底偏移悬空。
+    g.updateMatrixWorld(true);
+    g.traverse(o => { if (o.isSkinnedMesh && o.skeleton) o.skeleton.update(); });
+    g.updateMatrixWorld(true);
     const box2 = new THREE.Box3().setFromObject(g);
     g.position.y = -box2.min.y;
 
@@ -164,10 +169,11 @@
       let fromGLB = !!g;
       if (!g) g = buildPerson(spec, rng);   // 模型缺失时降级
 
-      const y = S.World.groundY(cl.x, cl.z); // 贴合“可见地形表面”，消除悬浮
+      // 放到地面坐标（先设 x/z，y 稍后二次校正）
       g.position.x = cl.x;
       g.position.z = cl.z;
-      g.position.y += y;                     // 脚底落到地面
+      const groundY0 = S.World.groundY(cl.x, cl.z);
+      g.position.y += groundY0;             // 脚底落到地面
       g.rotation.y = Math.atan2(0 - cl.x, 0 - cl.z) + (rng() - 0.5) * 0.6;
 
       const label = makeLabel(spec.name, spec.role);
@@ -183,7 +189,27 @@
       g.add(mk);
 
       scene.add(g);
-        const sitting = (spec.id === 'aicha') && !fromGLB;
+
+      // 脚下接触阴影：半透明深色圆片，让 NPC 在任何角度都"踩"在地上
+      const shadowGeo = new THREE.CircleGeometry(0.42, 18);
+      shadowGeo.rotateX(-Math.PI / 2);
+      const shadowMat = new THREE.MeshBasicMaterial({
+        color: 0x1a0e05, transparent: true, opacity: 0.35, depthWrite: false
+      });
+      const blobShadow = new THREE.Mesh(shadowGeo, shadowMat);
+      blobShadow.position.y = 0.02;
+      g.add(blobShadow);
+
+      // 二次落地校正：NPC 加入场景后，用世界包围盒实测脚底高度，
+      // 与地形射线点对齐，消除蒙皮骨骼矩阵残留导致的悬空。
+      g.updateMatrixWorld(true);
+      const footBox = new THREE.Box3().setFromObject(g);
+      const groundNow = S.World.groundY(cl.x, cl.z);
+      if (isFinite(footBox.min.y)) {
+        g.position.y += (groundNow - footBox.min.y);
+      }
+
+      const sitting = (spec.id === 'aicha') && !fromGLB;
       if (sitting) {
         g.userData.parts.legL.rotation.x = -1.35;
         g.userData.parts.legR.rotation.x = -1.35;

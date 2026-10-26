@@ -59,7 +59,7 @@
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.05;
+    renderer.toneMappingExposure = 1.12;
     this.renderer = renderer;
 
     const scene = new THREE.Scene();
@@ -69,19 +69,24 @@
     camera.position.set(0, 12, 80);
     this.camera = camera;
 
-    // 光
-    const hemi = new THREE.HemisphereLight(0xf3e2bd, 0x7a5a34, 0.75);
+    // 光：暖色调萨赫勒阳光 + 更柔和的环境光，让阴影不死黑
+    const hemi = new THREE.HemisphereLight(0xffe8c4, 0x6b4a2a, 0.95);
     scene.add(hemi);
-    const sun = new THREE.DirectionalLight(0xffe6bc, 1.35);
+    const sun = new THREE.DirectionalLight(0xffd9a0, 1.55);
     sun.position.set(60, 90, 40);
     sun.castShadow = true;
-    sun.shadow.mapSize.set(1024, 1024);
+    sun.shadow.mapSize.set(2048, 2048);
     const sc = sun.shadow.camera;
-    sc.near = 1; sc.far = 320; sc.left = -80; sc.right = 80; sc.top = 80; sc.bottom = -80;
-    sun.shadow.bias = -0.0016;
+    sc.near = 1; sc.far = 380; sc.left = -90; sc.right = 90; sc.top = 90; sc.bottom = -90;
+    sun.shadow.bias = -0.0008;
+    sun.shadow.normalBias = 0.02;
     scene.add(sun);
     scene.add(sun.target);
-    this.sun = sun; this.hemi = hemi;
+    // 补光：冷色环境反射，避免暗部死黑
+    const fill = new THREE.DirectionalLight(0x9bb8d8, 0.28);
+    fill.position.set(-40, 50, -30);
+    scene.add(fill);
+    this.sun = sun; this.hemi = hemi; this.fill = fill;
 
     // 天空
     const skyGeo = new THREE.SphereGeometry(700, 32, 18);
@@ -682,6 +687,25 @@
     p.frustumCulled = false;
     scene.add(p);
     World._dust = p;
+
+    // 常态漂浮微尘（比沙尘暴稀疏、颜色更淡，让空气有体积感）
+    const N2 = 260;
+    const pos2 = new Float32Array(N2 * 3);
+    for (let i = 0; i < N2; i++) {
+      pos2[i * 3] = (Math.random() - 0.5) * 120;
+      pos2[i * 3 + 1] = Math.random() * 12 + 0.3;
+      pos2[i * 3 + 2] = (Math.random() - 0.5) * 120;
+    }
+    const geo2 = new THREE.BufferGeometry();
+    geo2.setAttribute('position', new THREE.BufferAttribute(pos2, 3));
+    const mat2 = new THREE.PointsMaterial({
+      color: 0xf0e0b8, size: 0.18, transparent: true, opacity: 0.35,
+      depthWrite: false, sizeAttenuation: true
+    });
+    const p2 = new THREE.Points(geo2, mat2);
+    p2.frustumCulled = false;
+    scene.add(p2);
+    World._ambientDust = p2;
   }
 
   /* ============ 构建全部 ============ */
@@ -713,8 +737,8 @@
 
   /* ============ 季节与天气 ============ */
   const SKY = {
-    dry: { top: 0x3f83c0, mid: 0xd8cdae, bot: 0xe8c27a, sun: 0xfff0d0, fog: 0xdcc79b, fogN: 95, fogF: 430, hemi: 0.78, sunI: 1.45 },
-    rain: { top: 0x5b7fa6, mid: 0xa9b3a4, bot: 0x8fa06f, sun: 0xdce6d2, fog: 0xa8b298, fogN: 60, fogF: 300, hemi: 0.62, sunI: 1.05 }
+    dry: { top: 0x3a78b8, mid: 0xe0d4ae, bot: 0xf0c878, sun: 0xfff0d0, fog: 0xe0c898, fogN: 100, fogF: 460, hemi: 0.95, sunI: 1.55 },
+    rain: { top: 0x5b7fa6, mid: 0xa9b3a4, bot: 0x8fa06f, sun: 0xdce6d2, fog: 0xa8b298, fogN: 65, fogF: 320, hemi: 0.72, sunI: 1.1 }
   };
   const STORM = { top: 0xa07a44, mid: 0xc79a55, bot: 0xd8a860, sun: 0xe8b96a, fog: 0xc79a55, fogN: 16, fogF: 130, hemi: 0.55, sunI: 0.55 };
 
@@ -887,6 +911,19 @@
       // 太阳角度（沙尘暴时压低）
       const ang = 0.5 + Math.sin(t * 0.02) * 0.1;
       this.sun.position.set(Math.cos(ang) * 90, lerp(95, 55, st), Math.sin(ang) * 70);
+    }
+
+    // 常态漂浮微尘：缓慢漂移，跟随玩家
+    if (this._ambientDust) {
+      const arr = this._ambientDust.geometry.attributes.position.array;
+      for (let i = 0; i < arr.length; i += 3) {
+        arr[i] += dt * 0.6;
+        arr[i + 2] += dt * 0.25;
+        if (arr[i] > 60) arr[i] -= 120;
+        if (arr[i + 2] > 60) arr[i + 2] -= 120;
+      }
+      this._ambientDust.geometry.attributes.position.needsUpdate = true;
+      this._ambientDust.position.set(playerPos.x, 0, playerPos.z);
     }
 
     // 阴影相机跟随玩家

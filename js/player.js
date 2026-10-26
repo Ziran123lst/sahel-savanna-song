@@ -50,6 +50,14 @@
     ph.position.y = 0.95; ph.castShadow = true;
     this._placeholder = ph;
     this.group.add(ph);
+    // 脚下接触阴影
+    const shGeo = new THREE.CircleGeometry(0.38, 16);
+    shGeo.rotateX(-Math.PI / 2);
+    this._blobShadow = new THREE.Mesh(shGeo, new THREE.MeshBasicMaterial({
+      color: 0x1a0e05, transparent: true, opacity: 0.35, depthWrite: false
+    }));
+    this._blobShadow.position.y = 0.02;
+    this.group.add(this._blobShadow);
     scene.add(this.group);
     this.pos.set(4, heightAt(4, 68), 68);
     this.group.position.copy(this.pos);

@@ -256,17 +256,17 @@
 
   /* ---------------- 对话 ---------------- */
   UI.showDialogue = function (spec, node, handler) {
-    this.mode = 'dialogue';
-    this._dlgHandler = handler;
-    this._dlgNode = node;
-    $('dlg-avatar').textContent = spec.face;
-    $('dlg-name').textContent = spec.name;
-    $('dlg-role').textContent = spec.role;
+    const who = spec || { face: '👤', name: '村民', role: '' };
+    // 兼容旧版 HTML：优先按 id 取，取不到再按类名取，避免 null.style 抛错
+    const nextEl = $('dlg-next') || document.querySelector('.dlg-next');
+    $('dlg-avatar').textContent = who.face || '👤';
+    $('dlg-name').textContent = who.name || '';
+    $('dlg-role').textContent = who.role || '';
     $('dlg-text').innerHTML = (node.text || '').replace(/\n/g, '<br>');
     const ch = $('dlg-choices');
     ch.innerHTML = '';
     if (node.opts && node.opts.length) {
-      $('dlg-next').style.display = 'none';
+      if (nextEl) nextEl.style.display = 'none';
       node.opts.forEach(o => {
         const b = document.createElement('button');
         b.className = 'choice';
@@ -275,9 +275,13 @@
         ch.appendChild(b);
       });
     } else {
-      $('dlg-next').style.display = 'flex';
+      if (nextEl) nextEl.style.display = 'flex';
     }
     $('dialogue').classList.remove('hidden');
+    // 所有 DOM 操作成功后再占用模态：中途异常不会把 UI.mode 永久卡在 dialogue
+    this.mode = 'dialogue';
+    this._dlgHandler = handler;
+    this._dlgNode = node;
     SFX.talk();
   };
 
@@ -360,8 +364,10 @@
   };
 
   /* ---------------- 遮罩面板 ---------------- */
-  UI.overlay = function (html, buttons) {
+  UI.overlay = function (html, buttons, onClose) {
     this.mode = 'overlay';
+    // 可选关闭回调：让「标题 → 操作说明 → 返回标题」这类流程在点击按钮或按 Esc 时都能回到来处
+    this._overlayOnClose = onClose || null;
     const p = $('ov-panel');
     p.innerHTML = html;
     const row = document.createElement('div');
@@ -382,6 +388,9 @@
   UI.closeOverlay = function () {
     $('overlay').classList.add('hidden');
     if (this.mode === 'overlay') this.mode = null;
+    const cb = this._overlayOnClose;
+    this._overlayOnClose = null;
+    if (cb) { try { cb(); } catch (e) { console.error('[UI] overlay onClose 失败：', e); } }
   };
 
   /* ---------------- 章节引言 ---------------- */
@@ -444,7 +453,7 @@
   };
 
   /* ---------------- 操作说明 ---------------- */
-  UI.help = function () {
+  UI.help = function (fromTitle) {
     const rows = [
       ['W A S D / 方向键', '移动'],
       ['Shift（按住）', '奔跑'],
@@ -465,10 +474,14 @@
       '<p style="margin-top:10px">所有题目按<b>香港中学文凭试（DSE）地理科</b>的课程框架设计：' +
       '旱地环境、荒漠化、农业与粮食安全、人口迁移、可持续发展。答错也会记下解析——这是学习的一部分。</p>';
     const btns = [
-      { label: '音效：' + (SFX.on ? '开' : '关'), ghost: true, onClick: () => { SFX.on = !SFX.on; this.help(); } },
-      { label: '关闭', onClick: () => this.closeOverlay() }
+      { label: '音效：' + (SFX.on ? '开' : '关'), ghost: true, onClick: () => { SFX.on = !SFX.on; this.help(fromTitle); } },
+      { label: fromTitle ? '返回标题' : '关闭', onClick: () => this.closeOverlay() }
     ];
-    this.overlay(html, btns);
+    // 从标题页进来时，无论点「返回标题」还是按 Esc，都回到标题，避免游戏卡在未开始状态
+    const back = fromTitle
+      ? () => this.title(this._titleArgs && this._titleArgs.onStart, this._titleArgs && this._titleArgs.onSkipStory)
+      : null;
+    this.overlay(html, btns, back);
   };
 
   /* ---------------- 小游戏 ---------------- */
@@ -739,6 +752,7 @@
 
   /* ---------------- 标题画面 ---------------- */
   UI.title = function (onStart, onSkipStory) {
+    this._titleArgs = { onStart, onSkipStory };
     const html =
       '<div class="sub">DSE GEOGRAPHY · OPEN WORLD ADVENTURE</div>' +
       '<h1>萨赫勒之歌</h1>' +
@@ -760,7 +774,7 @@
       '<p style="margin-top:14px;opacity:.7;font-size:13px">建议先按 <b>H</b> 查看操作说明。全程约 25–35 分钟。</p>';
     this.overlay(html, [
       { label: '开始故事 ▸', onClick: () => { this.closeOverlay(); onStart(); } },
-      { label: '操作说明', ghost: true, onClick: () => this.help() }
+      { label: '操作说明', ghost: true, onClick: () => this.help(true) }
     ]);
   };
 

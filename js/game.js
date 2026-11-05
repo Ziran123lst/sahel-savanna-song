@@ -9,10 +9,11 @@
 
   const siteById = id => SITES.find(s => s.id === id);
   // NPCS 是 story.js 导出的纯规格数组；NPCs（模块）才有 .list（运行时实例）。
-  // 按 id 查运行时实例，再取回 spec。之前误用 NPCS.list 导致 TypeError，对话一按 F 就崩。
+  // 优先取运行时 spec，NPC 尚未生成或列表为空时回退到静态规格，
+  // 保证对话资料永远能取到（之前误用 NPCS.list 会抛 TypeError）。
   const npcById = id => {
-    const it = NPCs.list.find(n => n.spec.id === id);
-    return it ? it.spec : null;
+    const it = (NPCs && NPCs.list) ? NPCs.list.find(n => n.spec && n.spec.id === id) : null;
+    return it ? it.spec : (NPCS.find(n => n.id === id) || null);
   };
 
   const Game = {
@@ -249,6 +250,14 @@
       }
       else if (cmd === 'flag') { this.flags[a[1]] = true; }
       else if (cmd === 'unflag') { this.flags[a[1]] = false; }
+      else if (cmd === 'choice') {
+        // choice:<key>:<土地分>:<生计分>:<描述> —— 记录剧情抉择，供终章结局判定
+        this.choices = this.choices || {};
+        this.choices[a[1]] = true;
+        this.state.landScore = (this.state.landScore || 0) + (parseFloat(a[2]) || 0);
+        this.state.livelihood = (this.state.livelihood || 0) + (parseFloat(a[3]) || 0);
+        if (a[4]) UI.toast(a[4], 'note');
+      }
       else if (cmd === 'note') { this.unlockNote(a[1]); }
       else if (cmd === 'sus') { this.state.sustain = clamp(this.state.sustain + parseFloat(a[1]), 0, 100); }
       else if (cmd === 'season') { this.state.season = a[1]; World.setSeason(a[1]); }
@@ -276,39 +285,45 @@
   };
 
   /* ================= 对话 ================= */
-  Game.talkTo = function (npcId, nodeId) {
+  Game.talkTo = function (npcId, nodeId, isTaskStep) {
     const spec = npcById(npcId);
     const tree = DIALOGUE[npcId];
     if (!spec || !tree) return;
     let node = tree[nodeId] || tree.start;
     if (!node) { UI.toast('（他只是对你点了点头）'); return; }
+    // 只有「当前任务要求的那次对话」才允许推进任务；普通闲聊里的 next 不应改变进度
+    this._talkGuard = isTaskStep ? { act: this.actIndex, step: this.stepIndex, used: false } : null;
+    this._talkCompletesStep = !!isTaskStep;
     this._talkCtx = { npcId, nodeId: nodeId || 'start' };
     this.showNode(npcId, nodeId || 'start');
   };
 
   Game.showNode = function (npcId, nodeId) {
-    const spec = npcById(npcId);
     const tree = DIALOGUE[npcId];
-    const node = tree[nodeId];
+    const node = tree && tree[nodeId];
     if (!node) { this.endTalk(); return; }
-    UI.showDialogue(spec, node, opt => this.onDialogueChoice(npcId, node, opt));
+    try {
+      UI.showDialogue(npcById(npcId), node, opt => this.onDialogueChoice(npcId, node, opt));
+    } catch (err) {
+      // 任何渲染异常都必须释放模态，否则 UI.mode 卡在 dialogue，整局无法再交互
+      console.error('[Game] 对话渲染失败：', err);
+      UI.hideDialogue();
+      this._pendingNext = false;
+      this._talkCompletesStep = false;
+      this._talkGuard = null;
+      UI.toast('对话暂时无法显示，请走近再按一次 F。', 'bad');
+    }
   };
 
   Game.onDialogueChoice = function (npcId, node, opt) {
     const actStr = opt.isContinue ? (node.act || null) : (opt.act || null);
     const to = opt.isContinue ? node.to : opt.to;
     const res = this.runAct(actStr, { npcId });
-    const finish = () => {
-      if (this._pendingNext) {
-        this._pendingNext = false;
-        this.completeStep();
-      }
-    };
-
+    // 任务推进统一放到 endTalk：对话树中常有多个 next，若在选项里立刻
+    // completeStep，一次对话会连跳好几个任务步骤。
     if (res && res.kind === 'quiz') {
       UI.hideDialogue();
       this.runQuiz(res.req, () => {
-        finish();
         if (to) this.showNode(npcId, to); else this.endTalk();
       });
       return;
@@ -316,7 +331,6 @@
     if (res && res.kind === 'mini') {
       UI.hideDialogue();
       this.runMini(res.req.type, res.req.n, () => {
-        finish();
         if (to) this.showNode(npcId, to); else this.endTalk();
       });
       return;
@@ -329,16 +343,31 @@
     if (res && res.kind === 'notes') {
       UI.hideDialogue();
       UI.notes();
+      this._talkGuard = null;
+      this._pendingNext = false;
+      this._talkCompletesStep = false;
       return;
     }
-    finish();
     if (to) this.showNode(npcId, to); else this.endTalk();
   };
 
   Game.endTalk = function () {
     UI.hideDialogue();
-    if (this._pendingNext) { this._pendingNext = false; this._talkCompletesStep = false; this.completeStep(); return; }
-    if (this._talkCompletesStep) { this._talkCompletesStep = false; this.completeStep(); }
+    const needAdvance = this._pendingNext || this._talkCompletesStep;
+    this._pendingNext = false;
+    this._talkCompletesStep = false;
+    if (needAdvance) this._advanceFromTalk();
+    this._talkGuard = null;
+  };
+
+  // 一次任务对话最多推进一个步骤，且只在对话结束后推进；
+  // guard 为空说明是闲聊，即便对话里有 next 也不动任务进度。
+  Game._advanceFromTalk = function () {
+    const g = this._talkGuard;
+    if (!g || g.used) return;
+    if (g.act !== this.actIndex || g.step !== this.stepIndex) return;
+    g.used = true;
+    this.completeStep();
   };
 
   /* ================= 问答流程 ================= */
@@ -438,9 +467,9 @@
       label: '回答相关问题 ▸', onClick: () => {
         UI.closeOverlay();
         this.runQuiz({ arg: p.data.quiz, n: 1 }, () => {
-          const remain = this.probes.filter(x => !x.done).length;
           const need = (ACTS[this.actIndex].steps[this.stepIndex] || {}).n || 3;
-          const doneCount = this.probes.filter(x => !x.done).length;
+          // 统计「已完成」的调查点；之前误写成未完成数量，导致永远达不到 need
+          const doneCount = this.probes.filter(x => x.done).length;
           if (doneCount >= need) { setTimeout(() => this.completeStep(), 260); }
           else UI.toast('还需调查 ' + (need - doneCount) + ' 处迹象', 'note');
         });
@@ -460,25 +489,26 @@
     }
     // 2) 任务要求的对话（优先于世界设施，确保剧情步骤能完成）
     const step = this.currentStep();
+    const near = NPCs.nearest(pos, INTERACTION_RADIUS);
     if (step && step.k === 'talk') {
-      const nt = NPCs.nearest(pos, INTERACTION_RADIUS);
+      const target = NPCs.get(step.npc);
+      // 目标村民在交互半径内时直接选它，避免被旁边更近的人挤掉导致任务对话打不开
+      const nt = (target && dist2(pos.x, pos.z, target.x, target.z) < INTERACTION_RADIUS * INTERACTION_RADIUS)
+        ? target : near;
       if (nt && nt.spec.id === step.npc) {
-        this._talkCompletesStep = true;    // 此对话即为当前任务步骤
-        this.talkTo(step.npc, step.node || 'start');
+        this.talkTo(step.npc, step.node || 'start', true);   // 此对话即为当前任务步骤
         return;
       }
     }
-    // 3) 世界设施（含市场卖粮；放在普通闲聊之前，避免被 NPC 挡住）
+    // 3) 普通 NPC 闲聊：必须排在世界设施之前，否则老井、水塘、苗圃、集市
+    //    区域里的村民会被打水/卖粮拦住，按 F 永远开不了口
+    if (near) { this.talkTo(near.spec.id, 'start'); return; }
+    // 4) 世界设施（附近没有村民时才生效）
     const zone = S.zoneAt(pos.x, pos.z);
     if (zone && zone.id === 'well') { this.drawWater(90); return; }
     if (zone && zone.id === 'mare') { this.drawWater(70); return; }
     if (zone && zone.id === 'market') { this.sellGrain(); return; }
     if (zone && zone.id === 'nursery') { this.getSeedlings(); return; }
-    // 4) 普通 NPC 闲聊（市场区内不拦截，以免挡住卖粮）
-    if (!zone || zone.id !== 'market') {
-      const n = NPCs.nearest(pos, INTERACTION_RADIUS);
-      if (n) { this.talkTo(n.spec.id, 'start'); return; }
-    }
     // 5) 任务点（小游戏 / 到达点）
     if (this.taskPoint) {
       const tp = this.taskPoint;
@@ -609,10 +639,21 @@
   };
 
   /* ================= 结局 ================= */
+  // end:auto 与未知 id 按累计抉择判定；终章三个选项各对应一种结局。
+  // 旧版 ENDINGS.stay 并不存在，导致终章一选完就抛 TypeError。
+  Game.pickEnding = function () {
+    const c = this.choices || {};
+    if (c.final_migrate) return 'south';
+    if (c.final_diverse) return 'diverse';
+    if (c.final_stay) return 'resilient';
+    const score = (this.state.landScore || 0) + (this.state.livelihood || 0);
+    if (score <= 0) return 'displaced';
+    return score >= 4 ? 'resilient' : 'diverse';
+  };
+
   Game.showEnding = function (id) {
-    const base = ENDINGS[id] || ENDINGS.stay;
-    let e = base;
-    // 根据表现微调标题后缀
+    const key = (id && id !== 'auto' && ENDINGS[id]) ? id : this.pickEnding();
+    const e = ENDINGS[key] || ENDINGS.resilient;
     const st = this.state;
     const rate = st.quizTotal ? Math.round(st.quizCorrect / st.quizTotal * 100) : 0;
     const stats = {
@@ -650,7 +691,7 @@
         if (!UI.mode) this.toggleView();
       } else if (code === 'Escape') {
         if (UI.mode === 'overlay') UI.closeOverlay();
-        else if (UI.mode === 'dialogue') { UI.hideDialogue(); this._pendingNext = false; this._talkCompletesStep = false; }
+        else if (UI.mode === 'dialogue') { UI.hideDialogue(); this._pendingNext = false; this._talkCompletesStep = false; this._talkGuard = null; }
         else if (UI.mode === 'quiz') { /* 必须作答 */ }
       } else if (code === 'Space' || code === 'Enter') {
         if (UI.mode === 'dialogue') { UI._continue(); }

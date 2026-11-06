@@ -1,12 +1,12 @@
 /* ================================================================
- *  world.js —— 3D 开放世界：地形 · 植被 · 聚落 · 天空 · 季节
+ *  world.js —— 3D 開放世界：地形 · 植被 · 聚落 · 天空 · 季節
  * ================================================================ */
 (function (global) {
   'use strict';
   const S = global.SOS;
   const { WORLD, SITES, COLOR, clamp, lerp, dist2, fbm, makeRng, heightAt, aridityAt } = S;
 
-  /* 道路网络（折线，用于给地形上色） */
+  /* 道路網絡（折線，用於給地形上色） */
   const ROADS = [
     [[0, 48], [2, 92], [4, 132], [6, 172], [50, 186], [104, 196]],
     [[0, 48], [-18, 22], [-40, 4], [-52, -14]],
@@ -39,7 +39,7 @@
     scene: null, camera: null, renderer: null,
     sun: null, hemi: null, sky: null, skyMat: null,
     obstacles: [],       // {x,z,r}
-    markers: [],         // 动态交互标记
+    markers: [],         // 動態交互標記
     ground: null,
     season: 'dry',
     storm: 0,
@@ -50,7 +50,7 @@
     _skyTop: new THREE.Color(), _skyBot: new THREE.Color()
   };
 
-  /* ============ 初始化渲染器与场景 ============ */
+  /* ============ 初始化渲染器與場景 ============ */
   World.init = function (canvas) {
     const renderer = new THREE.WebGLRenderer({ canvas, antialias: window.devicePixelRatio < 2 });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
@@ -69,7 +69,7 @@
     camera.position.set(0, 12, 80);
     this.camera = camera;
 
-    // 光：暖色调萨赫勒阳光 + 更柔和的环境光，让阴影不死黑
+    // 光：暖色調薩赫勒陽光 + 更柔和的環境光，讓陰影不死黑
     const hemi = new THREE.HemisphereLight(0xffe8c4, 0x6b4a2a, 0.95);
     scene.add(hemi);
     const sun = new THREE.DirectionalLight(0xffd9a0, 1.55);
@@ -82,7 +82,7 @@
     sun.shadow.normalBias = 0.02;
     scene.add(sun);
     scene.add(sun.target);
-    // 补光：冷色环境反射，避免暗部死黑
+    // 補光：冷色環境反射，避免暗部死黑
     const fill = new THREE.DirectionalLight(0x9bb8d8, 0.28);
     fill.position.set(-40, 50, -30);
     scene.add(fill);
@@ -136,9 +136,9 @@
     this.renderer.setSize(window.innerWidth, window.innerHeight);
   };
 
-  /* 向下射线检测地形网格，返回“可见表面”的真实高度。
-   * 比 heightAt 更准：heightAt 是平滑解析面，而渲染网格在顶点之间是线性插值，
-   * 二者在顶点之外略有差异；用射线贴合可见网格可彻底消除 NPC/物体“悬浮”。 */
+  /* 向下射線檢測地形網格，返回“可見表面”的真實高度。
+   * 比 heightAt 更準：heightAt 是平滑解析面，而渲染網格在頂點之間是線性插值，
+   * 二者在頂點之外略有差異；用射線貼合可見網格可徹底消除 NPC/物體“懸浮”。 */
   World.groundY = function (x, z) {
     if (!this._gRay) { this._gRay = new THREE.Raycaster(); this._gDown = new THREE.Vector3(0, -1, 0); }
     if (this.ground) {
@@ -150,7 +150,7 @@
     return heightAt(x, z);
   };
 
-  /* 画质设置：high / medium / low —— 实时调整像素比、阴影与阴影贴图分辨率 */
+  /* 畫質設置：high / medium / low —— 實時調整像素比、陰影與陰影貼圖分辨率 */
   World.applyQuality = function (q) {
     if (!this.renderer) return;
     const dpr = window.devicePixelRatio || 1;
@@ -191,13 +191,13 @@
       const h = heightAt(x, z);
       pos.setY(i, h);
       const a = aridityAt(x, z);
-      // 底色调：湿→干
+      // 底色調：濕→幹
       if (a < 0.42) { cA.copy(cGrass).lerp(cGrassDry, a / 0.42); }
       else if (a < 0.72) { cA.copy(cGrassDry).lerp(cSoil, (a - 0.42) / 0.30); }
       else { cA.copy(cSoil).lerp(cSand, (a - 0.72) / 0.28); }
-      // 高处偏沙/岩
+      // 高處偏沙/巖
       if (h > 7) cA.lerp(cSandPale, clamp((h - 7) / 12, 0, 0.6));
-      // 斑驳
+      // 斑駁
       const n = fbm(x * 0.06 + 7, z * 0.06 + 3, 3);
       cA.offsetHSL(0, (n - 0.5) * 0.06, (n - 0.5) * 0.09);
       // 道路
@@ -206,7 +206,7 @@
         tmp.setHex(0xd8b483);
         cA.lerp(tmp, clamp(1 - dr / 4.2, 0, 1) * 0.78);
       }
-      // 沙丘顶部泛白
+      // 沙丘頂部泛白
       if (a > 0.8 && h > 9) cA.lerp(cSandPale, 0.35);
       colors[i * 3] = cA.r; colors[i * 3 + 1] = cA.g; colors[i * 3 + 2] = cA.b;
     }
@@ -228,7 +228,7 @@
     m.position.set(WORLD.water.x, -4.4, WORLD.water.z);
     m.receiveShadow = false;
     g.add(m);
-    // 湿泥边
+    // 濕泥邊
     const ringGeo = new THREE.RingGeometry(24, 33, 40);
     ringGeo.rotateX(-Math.PI / 2);
     const ring = new THREE.Mesh(ringGeo, new THREE.MeshLambertMaterial({ color: 0x6d5a34 }));
@@ -237,8 +237,8 @@
     return g;
   }
 
-  /* ============ 树 ============ */
-  /* kinds: 0 金合欢(伞形) 1 猴面包 2 棕榈 3 灌木 */
+  /* ============ 樹 ============ */
+  /* kinds: 0 金合歡(傘形) 1 猴麪包 2 棕櫚 3 灌木 */
   function placeTrees(scene, rng) {
     const treeSpots = [];
     const N = 300;
@@ -250,11 +250,11 @@
       if (Math.abs(x) > 216 || Math.abs(z) > 216) continue;
       const a = aridityAt(x, z);
       const dr = distToRoad(x, z);
-      // 密度随干旱度下降
+      // 密度隨乾旱度下降
       const density = clamp(1.15 - a * 1.25, 0.03, 1);
       if (rng() > density * 0.55) continue;
       if (dr < 4.5 && rng() > 0.12) continue;
-      // 离建筑远一点
+      // 離建築遠一點
       let nearSite = false;
       for (const s of SITES) {
         if ((s.kind === 'village' || s.kind === 'market' || s.kind === 'camp') &&
@@ -263,7 +263,7 @@
       if (nearSite) continue;
       let kind = 0;
       const r = rng();
-      if (a < 0.34 && r < 0.12) kind = 1;          // 猴面包（南部）
+      if (a < 0.34 && r < 0.12) kind = 1;          // 猴麪包（南部）
       else if (Math.sqrt(dist2(x, z, WORLD.water.x, WORLD.water.z)) < 55 && r < 0.4) kind = 2;
       else if (a > 0.62 && r < 0.55) kind = 3;     // 灌木
       treeSpots.push({ x, z, kind, a });
@@ -285,7 +285,7 @@
     const counts = { 0: 0, 1: 0, 2: 0, 3: 0 };
     treeSpots.forEach(t => counts[t.kind]++);
 
-    /* ---- 真实 GLB 树（来自 Poly Pizza / Quaternius，CC0）---- */
+    /* ---- 真實 GLB 樹（來自 Poly Pizza / Quaternius，CC0）---- */
     const gltfTree = S.Models.get('vendor/models/tree.glb');
     const treeNodes = [];
     if (gltfTree) {
@@ -307,7 +307,7 @@
       scene.add(node);
     };
 
-    // 模型缺失时的程序化降级（极少触发）
+    // 模型缺失時的程序化降級（極少觸發）
     if (!treeNodes.length) {
       const tMat = new THREE.MeshLambertMaterial({ color: COLOR.trunk });
       const cMat = new THREE.MeshLambertMaterial({ color: COLOR.canopy });
@@ -323,24 +323,24 @@
     let ti = 0;
     for (const t of treeSpots) {
       const src = treeNodes[ti++ % treeNodes.length];
-      if (t.kind === 0) {        // 金合欢：伞形
+      if (t.kind === 0) {        // 金合歡：傘形
         placeOneTree(src, t.x, t.z, 4.0 + rng() * 2.4);
         if (rng() < 0.3) World.obstacles.push({ x: t.x, z: t.z, r: 1.1 });
-      } else if (t.kind === 1) { // 猴面包：巨干
+      } else if (t.kind === 1) { // 猴麪包：巨幹
         placeOneTree(src, t.x, t.z, 5.6 + rng() * 1.4);
         World.obstacles.push({ x: t.x, z: t.z, r: 1.9 });
-      } else if (t.kind === 2) { // 棕榈
+      } else if (t.kind === 2) { // 棕櫚
         placeOneTree(src, t.x, t.z, 5.2 + rng() * 2.0);
-      } else {                   // 灌木：用最小的树缩小
+      } else {                   // 灌木：用最小的樹縮小
         placeOneTree(treeNodes[treeNodes.length - 1], t.x, t.z, 1.6 + rng() * 1.0);
       }
     }
     return treeSpots;
   }
 
-  /* ============ 草丛 / 石头 ============ */
+  /* ============ 草叢 / 石頭 ============ */
   function placeGroundCover(scene, rng) {
-    // 草：只在较湿润区
+    // 草：只在較濕潤區
     const grassGeo = new THREE.ConeGeometry(0.28, 0.62, 4);
     grassGeo.translate(0, 0.31, 0);
     const grassMat = new THREE.MeshLambertMaterial({ color: 0x9aa457 });
@@ -370,7 +370,7 @@
     if (grass.instanceColor) grass.instanceColor.needsUpdate = true;
     scene.add(grass);
 
-    // 石头
+    // 石頭
     const rockGeo = new THREE.IcosahedronGeometry(0.5, 0);
     const rockMat = new THREE.MeshLambertMaterial({ color: COLOR.rock, flatShading: true });
     const R = 700;
@@ -397,7 +397,7 @@
     scene.add(rocks);
   }
 
-  /* ============ 建筑系统 ============ */
+  /* ============ 建築系統 ============ */
   const wallGeo = new THREE.BoxGeometry(1, 1, 1);
   wallGeo.translate(0, 0.5, 0);
   const roofGeo = new THREE.ConeGeometry(0.78, 0.62, 8);
@@ -408,7 +408,7 @@
     const roofMat = new THREE.MeshLambertMaterial({ color: COLOR.thatch });
     const houseSpecs = [];
 
-    /* --- 村庄科多戈 --- */
+    /* --- 村莊科多戈 --- */
     const vil = SITES.find(s => s.id === 'village');
     for (let i = 0; i < 16; i++) {
       const ang = (i / 16) * 6.283 + rng() * 0.4;
@@ -419,18 +419,18 @@
       houseSpecs.push({ x, z, w, d, h, kind: 'house', rot: rng() * 6.283 });
       World.obstacles.push({ x, z, r: Math.max(w, d) * 0.55 });
     }
-    // 粮仓（圆柱）
+    // 糧倉（圓柱）
     houseSpecs.push({ x: vil.x + 16, z: vil.z + 6, w: 2.6, d: 2.6, h: 3.4, kind: 'granary', rot: 0.3 });
     World.obstacles.push({ x: vil.x + 16, z: vil.z + 6, r: 2.0 });
     houseSpecs.push({ x: vil.x + 19, z: vil.z + 11, w: 2.2, d: 2.2, h: 3.0, kind: 'granary', rot: -0.2 });
     // 清真寺（尖塔）
     houseSpecs.push({ x: vil.x - 14, z: vil.z + 20, w: 6.5, d: 6.5, h: 3.4, kind: 'mosque', rot: 0 });
     World.obstacles.push({ x: vil.x - 14, z: vil.z + 20, r: 4.2 });
-    // 小学
+    // 小學
     houseSpecs.push({ x: vil.x + 30, z: vil.z + 22, w: 7, d: 5, h: 3.0, kind: 'school', rot: 0.1 });
     World.obstacles.push({ x: vil.x + 30, z: vil.z + 22, r: 4.5 });
 
-    /* --- 集市卡亚镇 --- */
+    /* --- 集市卡亞鎮 --- */
     const mk = SITES.find(s => s.id === 'market');
     for (let i = 0; i < 14; i++) {
       const x = mk.x + (rng() - 0.5) * 58, z = mk.z + (rng() - 0.5) * 44;
@@ -438,19 +438,19 @@
       houseSpecs.push({ x, z, w: 3 + rng() * 2, d: 3 + rng() * 1.6, h: 2.4 + rng() * 0.8, kind: 'house', rot: rng() * 6.28 });
       World.obstacles.push({ x, z, r: 2.0 });
     }
-    // 摊档（矮台 + 遮阳棚）
+    // 攤檔（矮台 + 遮陽棚）
     for (let i = 0; i < 12; i++) {
       const x = mk.x + (rng() - 0.5) * 52, z = mk.z + (rng() - 0.5) * 30;
       houseSpecs.push({ x, z, w: 2.4 + rng() * 1.2, d: 2.0, h: 0.9, kind: 'stall', rot: rng() * 6.28 });
     }
 
-    /* --- 牧民营地（帐篷） --- */
+    /* --- 牧民營地（帳篷） --- */
     const camp = SITES.find(s => s.id === 'camp');
     for (let i = 0; i < 8; i++) {
       const ang = rng() * 6.283, rad = rng() * 18;
       houseSpecs.push({ x: camp.x + Math.cos(ang) * rad, z: camp.z + Math.sin(ang) * rad, w: 3.2, d: 3.2, h: 2.0, kind: 'tent', rot: rng() * 6.28 });
     }
-    // 畜栏
+    // 畜欄
     houseSpecs.push({ x: camp.x - 14, z: camp.z + 8, w: 12, d: 0.4, h: 1.2, kind: 'fence', rot: 0.2 });
 
     /* --- 苗圃 --- */
@@ -461,19 +461,19 @@
       houseSpecs.push({ x: nur.x - 18 + i * 4, z: nur.z - 8, w: 3, d: 1.2, h: 0.5, kind: 'bed', rot: 0 });
     }
 
-    /* --- 车站 --- */
+    /* --- 車站 --- */
     const st = SITES.find(s => s.id === 'station');
     houseSpecs.push({ x: st.x, z: st.z + 8, w: 7, d: 4, h: 2.8, kind: 'school', rot: 0 });
     World.obstacles.push({ x: st.x, z: st.z + 8, r: 4 });
 
-    /* --- 农田田埂（矮墙段） --- */
+    /* --- 農田田埂（矮牆段） --- */
     const farm = SITES.find(s => s.id === 'farm');
     for (let i = 0; i < 6; i++) {
       houseSpecs.push({ x: farm.x - 20 + i * 8, z: farm.z + 14, w: 7, d: 0.5, h: 0.55, kind: 'fence', rot: 0 });
     }
 
-    /* --- 真实 GLB 建筑：house/granary/stall/nursery/mosque/school/tent 用真实模型；
-           缺失该 GLB 时走程序化兜底，避免建筑消失或错位 --- */
+    /* --- 真實 GLB 建築：house/granary/stall/nursery/mosque/school/tent 用真實模型；
+           缺失該 GLB 時走程序化兜底，避免建築消失或錯位 --- */
     const M = {
       house:    S.Models.get('vendor/models/hut.glb'),
       granary:  S.Models.get('vendor/models/hut.glb'),
@@ -485,8 +485,8 @@
       baobab:   S.Models.get('vendor/models/baobab.glb')
     };
 
-    // 把 GLB 节点归一化到目标尺寸、脚底对齐地面后摆放。
-    // 统一缩放（sW 与 sH 取大值）：既铺满占地又不矮于目标高度，绝不拉伸变形。
+    // 把 GLB 節點歸一化到目標尺寸、腳底對齊地面後襬放。
+    // 統一縮放（sW 與 sH 取大值）：既鋪滿佔地又不矮於目標高度，絕不拉伸變形。
     const placeModel = (gltf, x, z, targetH, targetW, rot) => {
       let node;
       try { node = window.SkeletonUtils ? window.SkeletonUtils.clone(gltf.scene) : gltf.scene.clone(true); }
@@ -515,7 +515,7 @@
         if (h.kind === 'stall' || h.kind === 'tent') World.obstacles.push({ x: h.x, z: h.z, r: r || Math.max(h.w, h.d) * 0.5 });
         return;
       }
-      // —— 程序化兜底（仅当对应 GLB 缺失）——
+      // —— 程序化兜底（僅當對應 GLB 缺失）——
       const y = heightAt(h.x, h.z);
       const g = new THREE.Group();
       if (h.kind === 'fence' || h.kind === 'bed') {
@@ -561,7 +561,7 @@
       scene.add(g);
     });
 
-    // 集会猴面包树：真实猴面包模型优先，否则程序化
+    // 集會猴麪包樹：真實猴麪包模型優先，否則程序化
     const gx = vil.x + 2, gz = vil.z + 2;
     if (M.baobab) {
       placeModel(M.baobab, gx, gz, 9.5, 9, 0);
@@ -591,7 +591,7 @@
       node.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
       const box = new THREE.Box3().setFromObject(node);
       const sz = new THREE.Vector3(); box.getSize(sz);
-      const sc = 1.5 / (sz.y || 1.5);          // 水井目标约 1.5m 高
+      const sc = 1.5 / (sz.y || 1.5);          // 水井目標約 1.5m 高
       node.scale.setScalar(sc);
       const box2 = new THREE.Box3().setFromObject(node);
       node.position.set(s.x, y - box2.min.y, s.z);
@@ -615,18 +615,18 @@
       World._wellBucket = bucket;
     }
     World.obstacles.push({ x: s.x, z: s.z, r: 2.0 });
-    // 饮牛槽
+    // 飲牛槽
     const trough = new THREE.Mesh(new THREE.BoxGeometry(6, 0.5, 1.6), new THREE.MeshLambertMaterial({ color: 0x7d6a52 }));
     trough.position.set(s.x + 7, y + 0.25, s.z + 5);
     trough.rotation.y = 0.5;
     scene.add(trough);
   }
 
-  /* ============ 牲畜（真实 GLB 模型） ============ */
-  /* 牛 / 公牛 / 山羊 / 绵羊 / 骆驼 / 鸡，散布在牧民营地与水塘周边。
-   * 不同作者对模型使用的「单位」不一致（有的 1 单位=1 米，有的 1 单位≈800 米），
-   * 所以统一用包围盒把每只动物归一化到真实身高，避免巨大/过小。
-   * 目标身高（米）由各模型真实比例给定。 */
+  /* ============ 牲畜（真實 GLB 模型） ============ */
+  /* 牛 / 公牛 / 山羊 / 綿羊 / 駱駝 / 雞，散佈在牧民營地與水塘周邊。
+   * 不同作者對模型使用的「單位」不一致（有的 1 單位=1 米，有的 1 單位≈800 米），
+   * 所以統一用包圍盒把每隻動物歸一化到真實身高，避免巨大/過小。
+   * 目標身高（米）由各模型真實比例給定。 */
   const ANIMAL_TARGET_H = {
     'vendor/models/cow.glb': 1.5, 'vendor/models/bull.glb': 1.7,
     'vendor/models/goat.glb': 0.7, 'vendor/models/sheep.glb': 0.9,
@@ -648,7 +648,7 @@
         const inst = S.Models.instance(path);
         if (!inst) continue;
         const m = inst.scene;
-        // 按包围盒归一化到目标身高
+        // 按包圍盒歸一化到目標身高
         const box = new THREE.Box3().setFromObject(m);
         const size = new THREE.Vector3(); box.getSize(size);
         const s = targetH / (size.y || targetH);
@@ -659,7 +659,7 @@
         m.position.set(x, heightAt(x, z), z);
         m.rotation.y = Math.random() * 6.283;
         m.userData.phase = Math.random() * 6.283;
-        m.userData.baseYaw = m.rotation.y;       // 基准朝向，仅做轻微摇摆，不再原地乱转
+        m.userData.baseYaw = m.rotation.y;       // 基準朝向，僅做輕微搖擺，不再原地亂轉
         m.userData.bob = Math.random() * 6.283;
         g.add(m);
       }
@@ -668,7 +668,7 @@
     World._animals = g;
   }
 
-  /* ============ 沙尘粒子 ============ */
+  /* ============ 沙塵粒子 ============ */
   function makeDust(scene) {
     const N = 900;
     const pos = new Float32Array(N * 3);
@@ -688,7 +688,7 @@
     scene.add(p);
     World._dust = p;
 
-    // 常态漂浮微尘（比沙尘暴稀疏、颜色更淡，让空气有体积感）
+    // 常態漂浮微塵（比沙塵暴稀疏、顏色更淡，讓空氣有體積感）
     const N2 = 260;
     const pos2 = new Float32Array(N2 * 3);
     for (let i = 0; i < N2; i++) {
@@ -708,18 +708,18 @@
     World._ambientDust = p2;
   }
 
-  /* ============ 构建全部 ============ */
+  /* ============ 構建全部 ============ */
   World.build = function (onProgress) {
     const rng = makeRng(20240721);
     const steps = [
-      ['正在隆起萨赫勒的土地…', () => { this.ground = buildGround(); this.scene.add(this.ground); }],
+      ['正在隆起薩赫勒的土地…', () => { this.ground = buildGround(); this.scene.add(this.ground); }],
       ['正在灌注旱谷的水…', () => { this.scene.add(buildWater()); }],
-      ['正在种下金合欢与猴面包树…', () => { placeTrees(this.scene, rng); }],
-      ['正在铺开草丛与砾石…', () => { placeGroundCover(this.scene, rng); }],
-      ['正在砌起泥砖的村庄…', () => { makeBuildings(this.scene, rng); }],
+      ['正在種下金合歡與猴麪包樹…', () => { placeTrees(this.scene, rng); }],
+      ['正在鋪開草叢與礫石…', () => { placeGroundCover(this.scene, rng); }],
+      ['正在砌起泥磚的村莊…', () => { makeBuildings(this.scene, rng); }],
       ['正在打一口老井…', () => { makeWell(this.scene); }],
-      ['正在赶来牛群…', () => { placeAnimals(this.scene); }],
-      ['正在起风…', () => { makeDust(this.scene); }]
+      ['正在趕來牛羣…', () => { placeAnimals(this.scene); }],
+      ['正在起風…', () => { makeDust(this.scene); }]
     ];
     let i = 0;
     return new Promise(resolve => {
@@ -735,7 +735,7 @@
     });
   };
 
-  /* ============ 季节与天气 ============ */
+  /* ============ 季節與天氣 ============ */
   const SKY = {
     dry: { top: 0x3a78b8, mid: 0xe0d4ae, bot: 0xf0c878, sun: 0xfff0d0, fog: 0xe0c898, fogN: 100, fogF: 460, hemi: 0.95, sunI: 1.55 },
     rain: { top: 0x5b7fa6, mid: 0xa9b3a4, bot: 0x8fa06f, sun: 0xdce6d2, fog: 0xa8b298, fogN: 65, fogF: 320, hemi: 0.72, sunI: 1.1 }
@@ -754,12 +754,12 @@
     this.scene.fog.near = p.fogN; this.scene.fog.far = p.fogF;
     this.hemi.intensity = p.hemi;
     this.sun.intensity = p.sunI;
-    // 植被：雨季更绿
+    // 植被：雨季更綠
     const green = season === 'rain';
     if (this._grassMat) this._grassMat.color.setHex(green ? 0x7d9440 : 0x9aa457);
     if (this._canopyMats[0]) this._canopyMats[0].color.setHex(green ? 0x4c7a2a : COLOR.canopy);
     if (this._canopyMats[2]) this._canopyMats[2].color.setHex(green ? 0x53763a : COLOR.scrub);
-    if (this._waterMesh !== null) { /* 雨季水面略涨 */ }
+    if (this._waterMesh !== null) { /* 雨季水面略漲 */ }
   };
 
   World.setStorm = function (on) {
@@ -792,7 +792,7 @@
     return { x: clamp(x, -L, L), z: clamp(z, -L, L) };
   };
 
-  /* ============ 交互标记 ============ */
+  /* ============ 交互標記 ============ */
   World.addMarker = function (x, z, color, type) {
     const y = heightAt(x, z);
     const g = new THREE.Group();
@@ -852,12 +852,12 @@
     this.markers.slice().forEach(m => this.removeMarker(m));
   };
 
-  /* ============ 每帧更新 ============ */
+  /* ============ 每幀更新 ============ */
   World.update = function (dt, playerPos) {
     this.time += dt;
     const t = this.time;
 
-    // 标记浮动
+    // 標記浮動
     for (const m of this.markers) {
       m.userData.t += dt;
       if (m.userData.spin) {
@@ -867,7 +867,7 @@
       }
     }
 
-    // 牲畜：原地轻微摇摆 / 呼吸，不再持续累积旋转（避免「原地乱转」）
+    // 牲畜：原地輕微搖擺 / 呼吸，不再持續累積旋轉（避免「原地亂轉」）
     if (this._animals) {
       for (const c of this._animals.children) {
         c.userData.phase += dt * 0.6;
@@ -879,7 +879,7 @@
     // 井桶
     if (this._wellBucket) this._wellBucket.position.y = 2.0 + Math.sin(t * 0.8) * 0.35;
 
-    // 沙尘
+    // 沙塵
     if (this._dust) {
       const target = (this.stormTarget || 0);
       this.storm += (target - this.storm) * Math.min(dt * 1.2, 1);
@@ -897,7 +897,7 @@
         this._dust.geometry.attributes.position.needsUpdate = true;
         this._dust.position.set(playerPos.x, 0, playerPos.z);
       }
-      // 雾与光的插值
+      // 霧與光的插值
       const dry = SKY[this.season] || SKY.dry;
       const f = this.scene.fog;
       f.color.lerpColors(new THREE.Color(dry.fog), new THREE.Color(STORM.fog), st);
@@ -908,12 +908,12 @@
       this.skyMat.uniforms.topColor.value.lerpColors(new THREE.Color(dry.top), new THREE.Color(STORM.top), st);
       this.skyMat.uniforms.midColor.value.lerpColors(new THREE.Color(dry.mid), new THREE.Color(STORM.mid), st);
       this.skyMat.uniforms.botColor.value.lerpColors(new THREE.Color(dry.bot), new THREE.Color(STORM.bot), st);
-      // 太阳角度（沙尘暴时压低）
+      // 太陽角度（沙塵暴時壓低）
       const ang = 0.5 + Math.sin(t * 0.02) * 0.1;
       this.sun.position.set(Math.cos(ang) * 90, lerp(95, 55, st), Math.sin(ang) * 70);
     }
 
-    // 常态漂浮微尘：缓慢漂移，跟随玩家
+    // 常態漂浮微塵：緩慢漂移，跟隨玩家
     if (this._ambientDust) {
       const arr = this._ambientDust.geometry.attributes.position.array;
       for (let i = 0; i < arr.length; i += 3) {
@@ -926,13 +926,13 @@
       this._ambientDust.position.set(playerPos.x, 0, playerPos.z);
     }
 
-    // 阴影相机跟随玩家
+    // 陰影相機跟隨玩家
     if (playerPos) {
       this.sun.target.position.set(playerPos.x, 0, playerPos.z);
       this.sun.position.set(playerPos.x + 60, 90, playerPos.z + 40);
       this.sun.target.updateMatrixWorld();
     }
-    // 天空跟随相机
+    // 天空跟隨相機
     if (this.sky && this.camera) this.sky.position.copy(this.camera.position);
   };
 

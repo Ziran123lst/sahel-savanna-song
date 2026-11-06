@@ -1,13 +1,13 @@
 /* ================================================================
- *  player.js —— 阿马杜：GLB 角色模型 + 第三人称/第一人称控制器
- *  角色模型来自 Poly Pizza 的 farmer 模型（带动画），归一化到真实身高。
- *  速度较旧版更快；V 键 / 视角按钮可切换第一、第三人称。
+ *  player.js —— 阿馬杜：GLB 角色模型 + 第三人稱/第一人稱控制器
+ *  角色模型來自 Poly Pizza 的 farmer 模型（帶動畫），歸一化到真實身高。
+ *  速度較舊版更快；V 鍵 / 視角按鈕可切換第一、第三人稱。
  * ================================================================ */
 (function (global) {
   'use strict';
   const S = global.SOS;
   const { clamp, lerp, heightAt } = S;
-  // 读取玩家设置（本地持久化）；缺失时回落到中性默认值
+  // 讀取玩家設置（本地持久化）；缺失時回落到中性默認值
   const SET = () => ((S.Settings && S.Settings.data) || {});
 
   const Player = {
@@ -17,7 +17,7 @@
     _actions: {},
     _curAction: null,
     pos: new THREE.Vector3(4, 0, 68),
-    yaw: Math.PI,          // 相机水平角
+    yaw: Math.PI,          // 相機水平角
     pitch: 0.34,
     dist: 4.0,
     facing: Math.PI,
@@ -35,14 +35,14 @@
     _onGround: true,
     _touch: null,
     _bobPhase: 0,
-    MODEL_YAW: 0          // 模型实际正面为 +Z：rotation.y = facing 即让角色面向移动方向（背对镜头）
+    MODEL_YAW: 0          // 模型實際正面為 +Z：rotation.y = facing 即讓角色面向移動方向（背對鏡頭）
   };
 
-  /* ---------------- 建模（占位，模型就绪后替换） ---------------- */
+  /* ---------------- 建模（佔位，模型就緒後替換） ---------------- */
   Player.create = function (scene) {
     this.group = new THREE.Group();
-    // 占位体：脚底贴地的“人形”胶囊（身高约 3.0m）。
-    // 即便 GLB 加载失败，也不会出现“又小又飘”的小胶囊。
+    // 佔位體：腳底貼地的“人形”膠囊（身高約 3.0m）。
+    // 即便 GLB 加載失敗，也不會出現“又小又飄”的小膠囊。
     const ph = new THREE.Mesh(
       new THREE.CapsuleGeometry(0.28, 1.34, 6, 12),
       new THREE.MeshLambertMaterial({ color: 0x3f6ea8 })
@@ -50,7 +50,7 @@
     ph.position.y = 0.95; ph.castShadow = true;
     this._placeholder = ph;
     this.group.add(ph);
-    // 脚下接触阴影
+    // 腳下接觸陰影
     const shGeo = new THREE.CircleGeometry(0.38, 16);
     shGeo.rotateX(-Math.PI / 2);
     this._blobShadow = new THREE.Mesh(shGeo, new THREE.MeshBasicMaterial({
@@ -64,30 +64,30 @@
     return this.group;
   };
 
-  /* ---------------- 接入 GLB 动画模型 ---------------- */
-  // TARGET_H：归一化到该身高（米），无论模型原生单位是多少
+  /* ---------------- 接入 GLB 動畫模型 ---------------- */
+  // TARGET_H：歸一化到該身高（米），無論模型原生單位是多少
   Player.setupModel = function (gltf) {
     if (!gltf) { this.ready = true; return; }
     if (this._placeholder) { this.group.remove(this._placeholder); this._placeholder = null; }
     const m = gltf.scene;
     m.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
 
-    // 关键：克隆后的蒙皮网格骨骼世界矩阵尚未就绪，必须显式更新，
-    // 否则 Box3.setFromObject 用到的 boneMatrices 是错的——
-    // 会导致 size.y 偏大→模型被缩得太小、脚底偏移算错→悬空。
+    // 關鍵：克隆後的蒙皮網格骨骼世界矩陣尚未就緒，必須顯式更新，
+    // 否則 Box3.setFromObject 用到的 boneMatrices 是錯的——
+    // 會導致 size.y 偏大→模型被縮得太小、腳底偏移算錯→懸空。
     m.updateMatrixWorld(true);
     m.traverse(o => { if (o.isSkinnedMesh && o.skeleton) o.skeleton.update(); });
     m.updateMatrixWorld(true);
 
-    // 按包围盒归一化身高，并把脚底对齐到本地 y=0（不同模型原生单位差异巨大）
+    // 按包圍盒歸一化身高，並把腳底對齊到本地 y=0（不同模型原生單位差異巨大）
     const box = new THREE.Box3().setFromObject(m);
     const size = new THREE.Vector3(); box.getSize(size);
-    const TARGET_H = 1.9;    // 按真实成年人身高归一化
+    const TARGET_H = 1.9;    // 按真實成年人身高歸一化
     const s = TARGET_H / (size.y || TARGET_H);
     m.scale.setScalar(s);
     const box2 = new THREE.Box3().setFromObject(m);
-    m.position.y = -box2.min.y;            // 脚底落到 group 原点
-    this.eyeY = box2.max.y - box2.min.y - 0.16;   // 眼睛高度 ≈ 头顶下 16cm
+    m.position.y = -box2.min.y;            // 腳底落到 group 原點
+    this.eyeY = box2.max.y - box2.min.y - 0.16;   // 眼睛高度 ≈ 頭頂下 16cm
     this.model = m;
     this.group.add(m);
 
@@ -112,7 +112,7 @@
     if (this.model) this.model.visible = !this.firstPerson;
   };
 
-  /* ---------------- 输入 ---------------- */
+  /* ---------------- 輸入 ---------------- */
   Player.bindInput = function (canvas) {
     const kd = e => {
       this.keys[e.code] = true;
@@ -123,7 +123,7 @@
     window.addEventListener('keyup', ku);
     window.addEventListener('blur', () => { this.keys = {}; this._touch = null; });
 
-    // 触屏摇杆（独立，独占其 pointerId，不参与相机控制）
+    // 觸屏搖桿（獨立，獨佔其 pointerId，不參與相機控制）
     const stick = document.getElementById('stick');
     if (stick) {
       const knob = stick.querySelector('i');
@@ -149,12 +149,12 @@
       stick.addEventListener('pointercancel', endTouch);
     }
 
-    // 相机控制：鼠标 / 单指看向 / 双指看向+捏合缩放，统一用 pointer 事件
+    // 相機控制：鼠標 / 單指看向 / 雙指看向+捏合縮放，統一用 pointer 事件
     const pts = new Map();          // pointerId -> {x,y}
-    let glance = null;              // 单指看向：上一帧坐标
-    let pinch = null;               // 双指：{mx,my,dist}
+    let glance = null;              // 單指看向：上一幀座標
+    let pinch = null;               // 雙指：{mx,my,dist}
     const onCamDown = e => {
-      if (e.pointerId === this._joyId) return;                     // 摇杆独占
+      if (e.pointerId === this._joyId) return;                     // 搖桿獨佔
       if (e.target && e.target.closest && e.target.closest('#stick,#btn-act,#btn-sprint')) return;
       pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (pts.size === 1) { glance = { x: e.clientX, y: e.clientY }; }
@@ -170,7 +170,7 @@
       const dx = e.clientX - prev.x, dy = e.clientY - prev.y;
       pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (pts.size >= 2 && pinch) {
-        // 双指：中点移动 → 旋转；间距变化 → 缩放（看向与缩放互不打架）
+        // 雙指：中點移動 → 旋轉；間距變化 → 縮放（看向與縮放互不打架）
         const p = [...pts.values()];
         const mx = (p[0].x + p[1].x) / 2, my = (p[0].y + p[1].y) / 2;
         const sd = SET();
@@ -206,7 +206,7 @@
       e.preventDefault();
     }, { passive: false });
 
-    // 疾跑：Shift（键盘）或移动端按钮（this._sprintTouch）
+    // 疾跑：Shift（鍵盤）或移動端按鈕（this._sprintTouch）
     const btnSprint = document.getElementById('btn-sprint');
     if (btnSprint) {
       const on = e => { e.preventDefault(); this._sprintTouch = true; };
@@ -218,16 +218,16 @@
     }
   };
 
-  /* ---------------- 每帧 ---------------- */
+  /* ---------------- 每幀 ---------------- */
   Player.update = function (dt, camera) {
     const k = this.keys;
     const sd = SET();
-    const ms = sd.moveSensitivity != null ? sd.moveSensitivity : 1;   // 摇杆移动灵敏度
-    // 取地面高度：优先用可见地形网格的向下射线（贴合真实表面，消除斜坡悬浮）；
+    const ms = sd.moveSensitivity != null ? sd.moveSensitivity : 1;   // 搖桿移動靈敏度
+    // 取地面高度：優先用可見地形網格的向下射線（貼合真實表面，消除斜坡懸浮）；
     // 退化到平滑 heightAt。
     const groundH = (x, z) => ((S.World && S.World.groundY) ? S.World.groundY(x, z) : heightAt(x, z));
-    const im = sd.invertMove ? -1 : 1;                                // 反转前后
-    const cd = sd.cameraDist != null ? sd.cameraDist : 1;             // 相机距离系数
+    const im = sd.invertMove ? -1 : 1;                                // 反轉前後
+    const cd = sd.cameraDist != null ? sd.cameraDist : 1;             // 相機距離係數
     let ix = 0, iz = 0;
     if (this.enabled) {
       if (k['KeyW'] || k['ArrowUp']) iz += 1;
@@ -243,13 +243,13 @@
     if (mag > 1) { ix /= mag; iz /= mag; }
     this.running = this.enabled && !!(k['ShiftLeft'] || k['ShiftRight'] || this._sprintTouch) && mag > 0.1;
 
-    // 方向（相对相机水平朝向）
+    // 方向（相對相機水平朝向）
     const fx = -Math.sin(this.yaw), fz = -Math.cos(this.yaw);
     const rx = Math.cos(this.yaw), rz = -Math.sin(this.yaw);
     const mx = fx * iz + rx * ix;
     const mz = fz * iz + rz * ix;
 
-    const maxSpeed = this.running ? 13.0 : 7.2;   // 较旧版更快
+    const maxSpeed = this.running ? 13.0 : 7.2;   // 較舊版更快
     const target = Math.hypot(mx, mz) > 0.02 ? maxSpeed : 0;
     this.speed = lerp(this.speed, target, Math.min(dt * 9, 1));
     this.moving = this.speed > 0.4;
@@ -263,7 +263,7 @@
       this.facing = Math.atan2(mx, mz);
     }
 
-    // 跳跃
+    // 跳躍
     if (this.enabled && k['Space'] && this._onGround) { this._vy = 4.8; this._onGround = false; }
     if (!this._onGround) {
       this._vy -= 16 * dt;
@@ -286,7 +286,7 @@
     while (d < -Math.PI) d += Math.PI * 2;
     this.group.rotation.y += d * Math.min(dt * 12, 1);
 
-    // 动画
+    // 動畫
     if (this.mixer) {
       const want = this.moving
         ? (this.running ? this._actions.run : this._actions.walk)
@@ -302,7 +302,7 @@
       this._placeholder.position.y = 0.95 + Math.abs(Math.sin(this._bobPhase)) * 0.04;
     }
 
-    // 相机
+    // 相機
     const cosP = Math.cos(this.pitch), sinP = Math.sin(this.pitch);
     if (this.firstPerson) {
       const headY = this.pos.y + (this.eyeY || 1.62);
@@ -310,7 +310,7 @@
       camera.position.copy(this._camPos);
       const dirX = -Math.sin(this.yaw) * cosP;
       const dirZ = -Math.cos(this.yaw) * cosP;
-      const dirY = -sinP;   // 修正：pitch 为正时俯视（向下），与第三人称一致
+      const dirY = -sinP;   // 修正：pitch 為正時俯視（向下），與第三人稱一致
       this.camTarget.set(this.pos.x + dirX * 12, headY + dirY * 12, this.pos.z + dirZ * 12);
       camera.lookAt(this.camTarget);
     } else {

@@ -1,5 +1,5 @@
 /* ================================================================
- *  npcs.js —— 村民模型、名字标签与交互检测
+ *  npcs.js —— 村民模型、名字標籤與交互檢測
  * ================================================================ */
 (function (global) {
   'use strict';
@@ -26,11 +26,11 @@
     c.closePath(); c.fill();
     c.strokeStyle = 'rgba(232,201,143,0.5)'; c.lineWidth = 3; c.stroke();
     c.fillStyle = '#f6e6c3';
-    c.font = 'bold 44px "PingFang SC","Microsoft YaHei",sans-serif';
+    c.font = 'bold 44px "PingFang TC","Microsoft JhengHei","PingFang SC","Microsoft YaHei",sans-serif';
     c.textAlign = 'center'; c.textBaseline = 'middle';
     c.fillText(text, cv.width / 2, 48);
     c.fillStyle = 'rgba(232,201,143,0.72)';
-    c.font = '26px "PingFang SC","Microsoft YaHei",sans-serif';
+    c.font = '26px "PingFang TC","Microsoft JhengHei","PingFang SC","Microsoft YaHei",sans-serif';
     c.fillText(role, cv.width / 2, 92);
     const tex = new THREE.CanvasTexture(cv);
     tex.colorSpace = THREE.SRGBColorSpace;
@@ -60,7 +60,7 @@
       g.add(leg);
     });
 
-    // 长袍/衣裙
+    // 長袍/衣裙
     const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.44, 0.92, 8), cloth);
     torso.position.y = 1.16 * h; torso.castShadow = true;
     g.add(torso);
@@ -78,7 +78,7 @@
     head.position.y = 1.80 * h; head.castShadow = true;
     g.add(head);
 
-    // 头巾 / 小帽
+    // 頭巾 / 小帽
     if (spec.id === 'aicha' || spec.id === 'brahim' || spec.id === 'halima' || spec.id === 'fatima' || spec.id === 'kadi' || spec.id === 'fatou') {
       const wrap = new THREE.Mesh(new THREE.TorusGeometry(0.19, 0.075, 6, 14), cloth);
       wrap.rotation.x = Math.PI / 2;
@@ -103,17 +103,17 @@
     return g;
   }
 
-  /* 每个 NPC 使用的 GLB 角色（来自 Poly Pizza / Quaternius，CC0）。
-   * 女性统一用 woman，男性用 farmer / adventurer 两类以增加多样性。 */
+  /* 每個 NPC 使用的 GLB 角色（來自 Poly Pizza / Quaternius，CC0）。
+   * 女性統一用 woman，男性用 farmer / adventurer 兩類以增加多樣性。 */
   const MODEL_KEYS = {
     aicha: 'woman', fatima: 'woman', aminata: 'woman', awa: 'woman',
     brahim: 'woman', brahime: 'woman', halima: 'woman', kadi: 'woman', fatou: 'woman',
     moussa: 'farmer', boubacar: 'farmer', souleymane: 'farmer',
     issa: 'adventurer', idrissa: 'adventurer'
   };
-  const TARGET_H = 1.8;   // 按真实成年人身高归一化
+  const TARGET_H = 1.8;   // 按真實成年人身高歸一化
 
-  // 从已预加载的 GLB 克隆一个可独立动画的角色；失败返回 null
+  // 從已預加載的 GLB 克隆一個可獨立動畫的角色；失敗返回 null
   function buildGLBPerson(spec, rng) {
     if (!window.SkeletonUtils || !S.Models) return null;
     const key = MODEL_KEYS[spec.id] || 'farmer';
@@ -123,29 +123,29 @@
     try {
       g = window.SkeletonUtils.clone(gltf.scene);
     } catch (e) {
-      console.warn('[NPCs] 骨骼克隆失败，降级方块人：', spec.id, e);
+      console.warn('[NPCs] 骨骼克隆失敗，降級方塊人：', spec.id, e);
       return null;
     }
-    // 关键：克隆后蒙皮网格骨骼世界矩阵尚未就绪，必须显式更新，
-    // 否则 Box3.setFromObject 用到的 boneMatrices 是错的→尺寸/脚底全算歪（悬空）。
+    // 關鍵：克隆後蒙皮網格骨骼世界矩陣尚未就緒，必須顯式更新，
+    // 否則 Box3.setFromObject 用到的 boneMatrices 是錯的→尺寸/腳底全算歪（懸空）。
     g.updateMatrixWorld(true);
     g.traverse(o => { if (o.isSkinnedMesh && o.skeleton) o.skeleton.update(); });
     g.updateMatrixWorld(true);
-    // 归一化到目标身高，并把脚底对齐到本地 y=0
+    // 歸一化到目標身高，並把腳底對齊到本地 y=0
     const box = new THREE.Box3().setFromObject(g);
     const size = new THREE.Vector3(); box.getSize(size);
     const s = TARGET_H / (size.y || TARGET_H);
     const variation = 0.94 + (rng() - 0.5) * 0.1;
     g.scale.setScalar(s * variation);
-    // 缩放后必须显式刷新世界矩阵，否则 Box3 用到的是旧 scale 的 boneMatrices，
-    // 导致 size/min.y 算错 → NPC 脚底偏移悬空。
+    // 縮放後必須顯式刷新世界矩陣，否則 Box3 用到的是舊 scale 的 boneMatrices，
+    // 導致 size/min.y 算錯 → NPC 腳底偏移懸空。
     g.updateMatrixWorld(true);
     g.traverse(o => { if (o.isSkinnedMesh && o.skeleton) o.skeleton.update(); });
     g.updateMatrixWorld(true);
     const box2 = new THREE.Box3().setFromObject(g);
     g.position.y = -box2.min.y;
 
-    // 播放 Idle 动画
+    // 播放 Idle 動畫
     let mixer = null;
     if (gltf.animations && gltf.animations.length) {
       mixer = new THREE.AnimationMixer(g);
@@ -161,26 +161,26 @@
   NPCs.create = function (scene) {
     const rng = S.makeRng(777);
     for (const spec of S.NPCS) {
-      // 避开建筑
+      // 避開建築
       const c = S.World.collide(spec.x, spec.z, 0.7);
       const cl = S.World.clampToWorld(c.x, c.z);
 
       let g = buildGLBPerson(spec, rng);
       let fromGLB = !!g;
-      if (!g) g = buildPerson(spec, rng);   // 模型缺失时降级
+      if (!g) g = buildPerson(spec, rng);   // 模型缺失時降級
 
-      // 放到地面坐标（先设 x/z，y 稍后二次校正）
+      // 放到地面座標（先設 x/z，y 稍後二次校正）
       g.position.x = cl.x;
       g.position.z = cl.z;
       const groundY0 = S.World.groundY(cl.x, cl.z);
-      g.position.y += groundY0;             // 脚底落到地面
+      g.position.y += groundY0;             // 腳底落到地面
       g.rotation.y = Math.atan2(0 - cl.x, 0 - cl.z) + (rng() - 0.5) * 0.6;
 
       const label = makeLabel(spec.name, spec.role);
       label.position.y = g.userData.height + 0.28;
       g.add(label);
 
-      // 交互提示标记
+      // 交互提示標記
       const mkGeo = new THREE.ConeGeometry(0.22, 0.5, 4);
       mkGeo.rotateX(Math.PI);
       const mk = new THREE.Mesh(mkGeo, new THREE.MeshBasicMaterial({ color: 0xffd477 }));
@@ -190,7 +190,7 @@
 
       scene.add(g);
 
-      // 脚下接触阴影：半透明深色圆片，让 NPC 在任何角度都"踩"在地上
+      // 腳下接觸陰影：半透明深色圓片，讓 NPC 在任何角度都"踩"在地上
       const shadowGeo = new THREE.CircleGeometry(0.42, 18);
       shadowGeo.rotateX(-Math.PI / 2);
       const shadowMat = new THREE.MeshBasicMaterial({
@@ -200,8 +200,8 @@
       blobShadow.position.y = 0.02;
       g.add(blobShadow);
 
-      // 二次落地校正：NPC 加入场景后，用世界包围盒实测脚底高度，
-      // 与地形射线点对齐，消除蒙皮骨骼矩阵残留导致的悬空。
+      // 二次落地校正：NPC 加入場景後，用世界包圍盒實測腳底高度，
+      // 與地形射線點對齊，消除蒙皮骨骼矩陣殘留導致的懸空。
       g.updateMatrixWorld(true);
       const footBox = new THREE.Box3().setFromObject(g);
       const groundNow = S.World.groundY(cl.x, cl.z);
@@ -244,22 +244,22 @@
   NPCs.update = function (dt, playerPos, interactEnabled) {
     for (const n of NPCs.list) {
       n.phase += dt * 0.9;
-      const p = n.group.userData.parts;          // GLB 角色无此字段
+      const p = n.group.userData.parts;          // GLB 角色無此字段
       const near = Math.sqrt(dist2(playerPos.x, playerPos.z, n.x, n.z)) < INTERACTION_RADIUS;
       n.marker.visible = near && !!interactEnabled;
       n.marker.rotation.y += dt * 2.2;
       n.marker.position.y = n.group.userData.height + 0.20 + Math.sin(n.phase * 2) * 0.10;
       if (p && !n.sitting) {
-        // 方块人：手臂/躯干轻微摆动
+        // 方塊人：手臂/軀幹輕微擺動
         const sw = Math.sin(n.phase * 0.55) * 0.05;
         p.armL.rotation.x = sw;
         p.armR.rotation.x = -sw;
         p.torso.rotation.y = Math.sin(n.phase * 0.35) * 0.10;
       } else if (n.mixer) {
-        // GLB 角色：推进 Idle 动画
+        // GLB 角色：推進 Idle 動畫
         n.mixer.update(dt);
       }
-      // 面向玩家（近距离）
+      // 面向玩家（近距離）
       if (near) {
         const want = Math.atan2(playerPos.x - n.x, playerPos.z - n.z);
         let d = want - n.group.rotation.y;
@@ -267,7 +267,7 @@
         while (d < -Math.PI) d += Math.PI * 2;
         n.group.rotation.y += d * Math.min(dt * 4, 1);
       }
-      // 标签距离淡出
+      // 標籤距離淡出
       const d = Math.sqrt(dist2(playerPos.x, playerPos.z, n.x, n.z));
       n.label.material.opacity = clamp(1.35 - d / 34, 0, 1);
       n.label.visible = d < 40;

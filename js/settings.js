@@ -1,7 +1,7 @@
 /* ================================================================
- *  settings.js —— 玩家偏好设置（本地持久化）
- *  开放世界常见设置：滑动/视角灵敏度、反转、相机距离、音量、画质。
- *  所有设置存于 localStorage，供 Player / World / SFX 实时读取。
+ *  settings.js —— 玩家偏好設置（本地持久化）
+ *  開放世界常見設置：滑動/視角靈敏度、反轉、相機距離、音量、畫質。
+ *  所有設置存於 localStorage，供 Player / World / SFX 實時讀取。
  * ================================================================ */
 (function (global) {
   'use strict';
@@ -9,12 +9,12 @@
   const LS_KEY = 'sahel_settings_v1';
 
   const DEFAULTS = {
-    lookSensitivity: 1.0,   // 视角拖动灵敏度系数（0.3 – 2.5）
-    moveSensitivity: 1.0,   // 摇杆移动灵敏度系数（0.4 – 2.0）
-    invertY: false,         // 反转视角上下
-    invertX: false,         // 反转视角左右
-    invertMove: false,      // 反转移动方向（前后）
-    cameraDist: 1.0,        // 相机距离系数（0.6 – 1.6，越大越远）
+    lookSensitivity: 1.0,   // 視角拖動靈敏度係數（0.3 – 2.5）
+    moveSensitivity: 1.0,   // 搖桿移動靈敏度係數（0.4 – 2.0）
+    invertY: false,         // 反轉視角上下
+    invertX: false,         // 反轉視角左右
+    invertMove: false,      // 反轉移動方向（前後）
+    cameraDist: 1.0,        // 相機距離係數（0.6 – 1.6，越大越遠）
     volume: 0.8,            // 音量 0 – 1
     quality: 'high'         // high | medium | low
   };
@@ -29,12 +29,12 @@
           const p = JSON.parse(raw);
           this.data = Object.assign({}, DEFAULTS, p);
         }
-      } catch (e) { /* 忽略损坏的存档 */ }
+      } catch (e) { /* 忽略損壞的存檔 */ }
       return this.data;
     },
 
     save() {
-      try { localStorage.setItem(LS_KEY, JSON.stringify(this.data)); } catch (e) { /* 隐私模式可能失败 */ }
+      try { localStorage.setItem(LS_KEY, JSON.stringify(this.data)); } catch (e) { /* 隱私模式可能失敗 */ }
     },
 
     set(key, value) {
@@ -49,12 +49,12 @@
       this.applyAll();
     },
 
-    // 单项即时生效
+    // 單項即時生效
     apply(key) {
       const d = this.data;
       if (key === 'volume' && S.UI && S.UI.SFX) { S.UI.SFX.master = d.volume; }
       if (key === 'quality' && S.World && S.World.applyQuality) { S.World.applyQuality(d.quality); }
-      // lookSensitivity / moveSensitivity / invert* / cameraDist 由 Player 每帧读取，无需即时生效
+      // lookSensitivity / moveSensitivity / invert* / cameraDist 由 Player 每幀讀取，無需即時生效
     },
 
     applyAll() {

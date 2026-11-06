@@ -1,5 +1,5 @@
 /* ================================================================
- *  game.js —— 主状态机：任务链 · 交互 · 资源 · 季节 · 结局
+ *  game.js —— 主狀態機：任務鏈 · 交互 · 資源 · 季節 · 結局
  * ================================================================ */
 (function (global) {
   'use strict';
@@ -8,9 +8,9 @@
   const { SITES, NPCS, DIALOGUE, ACTS, PROBES, ENDINGS, INTERACTION_RADIUS, clamp, dist2, heightAt } = S;
 
   const siteById = id => SITES.find(s => s.id === id);
-  // NPCS 是 story.js 导出的纯规格数组；NPCs（模块）才有 .list（运行时实例）。
-  // 优先取运行时 spec，NPC 尚未生成或列表为空时回退到静态规格，
-  // 保证对话资料永远能取到（之前误用 NPCS.list 会抛 TypeError）。
+  // NPCS 是 story.js 導出的純規格數組；NPCs（模塊）才有 .list（運行時實例）。
+  // 優先取運行時 spec，NPC 尚未生成或列表為空時回退到靜態規格，
+  // 保證對話資料永遠能取到（之前誤用 NPCS.list 會拋 TypeError）。
   const npcById = id => {
     const it = (NPCs && NPCs.list) ? NPCs.list.find(n => n.spec && n.spec.id === id) : null;
     return it ? it.spec : (NPCS.find(n => n.id === id) || null);
@@ -37,11 +37,11 @@
     _pendingQuiz: []
   };
 
-  /* ================= 启动 ================= */
+  /* ================= 啓動 ================= */
   Game.boot = function () {
     const canvas = document.getElementById('scene');
 
-    // 先检测 WebGL 可用性，缺失时给出明确提示而非静默卡死
+    // 先檢測 WebGL 可用性，缺失時給出明確提示而非靜默卡死
     let webglOK = false;
     try {
       const gl = canvas.getContext('webgl2') || canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
@@ -49,24 +49,24 @@
     } catch (e) { webglOK = false; }
     if (!webglOK) {
       const t = document.getElementById('ld-tip');
-      if (t) t.textContent = '当前浏览器/环境未启用 WebGL，无法渲染 3D 画面。请使用支持 WebGL 的现代浏览器，并确认未禁用「硬件加速」。';
-      console.error('[Game] WebGL 不可用，无法启动 3D 渲染。');
+      if (t) t.textContent = '當前瀏覽器/環境未啓用 WebGL，無法渲染 3D 畫面。請使用支持 WebGL 的現代瀏覽器，並確認未禁用「硬件加速」。';
+      console.error('[Game] WebGL 不可用，無法啓動 3D 渲染。');
       return;
     }
 
     World.init(canvas);
     S.Models.init();
-    if (S.Settings) S.Settings.load();        // 读取本地偏好
+    if (S.Settings) S.Settings.load();        // 讀取本地偏好
     Player.create(World.scene);
     Player.bindInput(canvas);
     UI.init(this);
-    if (S.Settings) S.Settings.applyAll();     // 应用音量/画质等即时项
+    if (S.Settings) S.Settings.applyAll();     // 應用音量/畫質等即時項
     this.bindKeys();
 
     const ld = document.getElementById('ld-progress');
     const tip = document.getElementById('ld-tip');
 
-    // 1) 预加载 GLB 模型（玩家农夫 + 牲畜 + 村民角色 + 树/屋）
+    // 1) 預加載 GLB 模型（玩家農夫 + 牲畜 + 村民角色 + 樹/屋）
     const MODEL_LIST = [
       'vendor/models/farmer.glb',
       'vendor/models/cow.glb', 'vendor/models/bull.glb', 'vendor/models/goat.glb',
@@ -77,23 +77,23 @@
       'vendor/models/school.glb', 'vendor/models/stall.glb', 'vendor/models/well.glb'
     ];
     S.Models.preloadAll(MODEL_LIST, (done, total) => {
-      tip.textContent = '正在装载牲畜、村民与场景模型… ' + done + '/' + total;
+      tip.textContent = '正在裝載牲畜、村民與場景模型… ' + done + '/' + total;
       if (ld) ld.style.width = Math.round((done / total) * 50) + '%';
     }).then(() => {
-      // 通过公开接口取模型；loader 内部使用带版本号的缓存键，
-      // 不能直接访问 _gltfs 的未版本化路径，否则会误保留蓝色占位体。
+      // 通過公開接口取模型；loader 內部使用帶版本號的緩存鍵，
+      // 不能直接訪問 _gltfs 的未版本化路徑，否則會誤保留藍色佔位體。
       Player.setupModel(S.Models.get('vendor/models/farmer.glb'));
       if (ld) ld.style.width = '55%';
 
-      // 2) 构建世界（含散布的牲畜与地形）；地形/障碍就绪后再生成村民，
-      //    这样村民既能避开建筑，又能用向下射线贴合“可见地形表面”消除悬浮。
+      // 2) 構建世界（含散佈的牲畜與地形）；地形/障礙就緒後再生成村民，
+      //    這樣村民既能避開建築，又能用向下射線貼合“可見地形表面”消除懸浮。
       World.build((label, p) => {
         tip.textContent = label;
         if (ld) ld.style.width = Math.round(55 + p * 40) + '%';
       }).then(() => {
         if (S.NPCs && S.NPCs.create) S.NPCs.create(World.scene);
         if (ld) ld.style.width = '100%';
-        tip.textContent = '准备好了。';
+        tip.textContent = '準備好了。';
         setTimeout(() => {
           document.getElementById('loading').classList.add('out');
           this.startLoop();
@@ -125,7 +125,7 @@
     UI.chapterCard(act, () => { this.beginStep(); });
   };
 
-  /* ================= 任务步骤 ================= */
+  /* ================= 任務步驟 ================= */
   Game.currentStep = function () {
     const act = ACTS[this.actIndex];
     return act ? act.steps[this.stepIndex] : null;
@@ -139,7 +139,7 @@
     this.clearMarkers();
 
     if (st.k === 'probe') {
-      // 在自家田生成调查点
+      // 在自家田生成調查點
       const f = siteById('farm');
       const rng = S.makeRng(4242);
       const n = Math.min(st.n, PROBES.length);
@@ -171,11 +171,11 @@
         this.runQuiz({ arg, n }, () => { setTimeout(() => this.completeStep(), 200); });
       }, 520);
     } else if (st.k === 'season') {
-      // 自动完成
+      // 自動完成
       setTimeout(() => {
         World.setSeason(st.v);
         this.state.season = st.v;
-        UI.toast(st.v === 'rain' ? '🌧 雨季来了 —— 第一场雨落在你挖好的坑里' : '☀ 旱季开始', 'good');
+        UI.toast(st.v === 'rain' ? '🌧 雨季來了 —— 第一場雨落在你挖好的坑裏' : '☀ 旱季開始', 'good');
         UI.SFX.plant();
         if (st.v === 'rain') {
           this.state.fertility = clamp(this.state.fertility + 14, 0, 100);
@@ -206,7 +206,7 @@
     this.actState[ACTS[this.actIndex].id] = { done: true, step: this.stepIndex };
     const next = this.actIndex + 1;
     if (next >= ACTS.length) return;
-    if (next === 5) { // 终章：起风
+    if (next === 5) { // 終章：起風
       World.setSeason('dry');
       this.state.season = 'dry';
       this.triggerStorm(26);
@@ -245,13 +245,13 @@
         const v = parseFloat(a[2]);
         if (this.state[a[1]] !== undefined) this.state[a[1]] = this.state[a[1]] + v;
         else this.state[a[1]] = v;
-        const label = { water: '水', food: '粮食', cash: '现金', fertility: '肥力' }[a[1]] || a[1];
+        const label = { water: '水', food: '糧食', cash: '現金', fertility: '肥力' }[a[1]] || a[1];
         UI.toast((v > 0 ? '＋' : '') + v + ' ' + label, v > 0 ? 'good' : 'bad');
       }
       else if (cmd === 'flag') { this.flags[a[1]] = true; }
       else if (cmd === 'unflag') { this.flags[a[1]] = false; }
       else if (cmd === 'choice') {
-        // choice:<key>:<土地分>:<生计分>:<描述> —— 记录剧情抉择，供终章结局判定
+        // choice:<key>:<土地分>:<生計分>:<描述> —— 記錄劇情抉擇，供終章結局判定
         this.choices = this.choices || {};
         this.choices[a[1]] = true;
         this.state.landScore = (this.state.landScore || 0) + (parseFloat(a[2]) || 0);
@@ -280,18 +280,18 @@
     if (!this.state.notes.has(id)) {
       this.state.notes.add(id);
       const n = S.NOTES.find(x => x.id === id);
-      if (n) UI.toast('📘 解锁知识点：' + n.t, 'note');
+      if (n) UI.toast('📘 解鎖知識點：' + n.t, 'note');
     }
   };
 
-  /* ================= 对话 ================= */
+  /* ================= 對話 ================= */
   Game.talkTo = function (npcId, nodeId, isTaskStep) {
     const spec = npcById(npcId);
     const tree = DIALOGUE[npcId];
     if (!spec || !tree) return;
     let node = tree[nodeId] || tree.start;
-    if (!node) { UI.toast('（他只是对你点了点头）'); return; }
-    // 只有「当前任务要求的那次对话」才允许推进任务；普通闲聊里的 next 不应改变进度
+    if (!node) { UI.toast('（他只是對你點了點頭）'); return; }
+    // 只有「當前任務要求的那次對話」才允許推進任務；普通閒聊裏的 next 不應改變進度
     this._talkGuard = isTaskStep ? { act: this.actIndex, step: this.stepIndex, used: false } : null;
     this._talkCompletesStep = !!isTaskStep;
     this._talkCtx = { npcId, nodeId: nodeId || 'start' };
@@ -305,13 +305,13 @@
     try {
       UI.showDialogue(npcById(npcId), node, opt => this.onDialogueChoice(npcId, node, opt));
     } catch (err) {
-      // 任何渲染异常都必须释放模态，否则 UI.mode 卡在 dialogue，整局无法再交互
-      console.error('[Game] 对话渲染失败：', err);
+      // 任何渲染異常都必須釋放模態，否則 UI.mode 卡在 dialogue，整局無法再交互
+      console.error('[Game] 對話渲染失敗：', err);
       UI.hideDialogue();
       this._pendingNext = false;
       this._talkCompletesStep = false;
       this._talkGuard = null;
-      UI.toast('对话暂时无法显示，请走近再按一次 F。', 'bad');
+      UI.toast('對話暫時無法顯示，請走近再按一次 F。', 'bad');
     }
   };
 
@@ -319,8 +319,8 @@
     const actStr = opt.isContinue ? (node.act || null) : (opt.act || null);
     const to = opt.isContinue ? node.to : opt.to;
     const res = this.runAct(actStr, { npcId });
-    // 任务推进统一放到 endTalk：对话树中常有多个 next，若在选项里立刻
-    // completeStep，一次对话会连跳好几个任务步骤。
+    // 任務推進統一放到 endTalk：對話樹中常有多個 next，若在選項裏立刻
+    // completeStep，一次對話會連跳好幾個任務步驟。
     if (res && res.kind === 'quiz') {
       UI.hideDialogue();
       this.runQuiz(res.req, () => {
@@ -360,8 +360,8 @@
     this._talkGuard = null;
   };
 
-  // 一次任务对话最多推进一个步骤，且只在对话结束后推进；
-  // guard 为空说明是闲聊，即便对话里有 next 也不动任务进度。
+  // 一次任務對話最多推進一個步驟，且只在對話結束後推進；
+  // guard 為空説明是閒聊，即便對話裏有 next 也不動任務進度。
   Game._advanceFromTalk = function () {
     const g = this._talkGuard;
     if (!g || g.used) return;
@@ -370,7 +370,7 @@
     this.completeStep();
   };
 
-  /* ================= 问答流程 ================= */
+  /* ================= 問答流程 ================= */
   Game.runQuiz = function (req, onDone) {
     let items = [];
     if (req.arg && req.arg.indexOf(',') >= 0) {
@@ -379,7 +379,7 @@
       const one = S.QUIZ_ALL.find(q => q.id === req.arg);
       if (one) items = [one];
     } else {
-      // 从分组随机抽 n 题（优先未答过的）
+      // 從分組隨機抽 n 題（優先未答過的）
       const pool = (S.QUIZ[req.arg] || S.QUIZ.desertification).items;
       const unseen = pool.filter(q => !this._asked.has(q.id));
       const src = unseen.length ? unseen : pool;
@@ -396,7 +396,7 @@
       this.state.quizTotal++;
       UI._currentQuiz = it;
       UI.showQuiz(it, (ok, item) => {
-        // 解锁知识点（答对额外加分）
+        // 解鎖知識點（答對額外加分）
         this.unlockNote(item.id);
         if (ok) {
           this.state.quizCorrect++;
@@ -412,7 +412,7 @@
     next();
   };
 
-  /* ================= 小游戏 ================= */
+  /* ================= 小遊戲 ================= */
   Game.runMini = function (type, need, onDone, isTask) {
     const cfg = { zai: 8, stone: 4, tree: 5, water: 6, graze: 8 };
     const n = need || cfg[type] || 6;
@@ -423,22 +423,22 @@
           this.state.water = clamp(this.state.water - count * 3, 0, 260);
           this.state.fertility = clamp(this.state.fertility + count * 3.2, 0, 100);
           this.state.sustain = clamp(this.state.sustain + count * 1.4, 0, 100);
-          UI.toast('🕳 挖了 ' + count + ' 个 zaï 坑　肥力 +' + (count * 3.2).toFixed(0), 'good');
+          UI.toast('🕳 挖了 ' + count + ' 個 zaï 坑　肥力 +' + (count * 3.2).toFixed(0), 'good');
         } else if (type === 'stone') {
           this.state.stones += count;
           this.state.fertility = clamp(this.state.fertility + count * 4.0, 0, 100);
           this.state.sustain = clamp(this.state.sustain + count * 1.8, 0, 100);
-          UI.toast('🪨 摆了 ' + count + ' 道石线　径流减慢，入渗增加', 'good');
+          UI.toast('🪨 擺了 ' + count + ' 道石線　徑流減慢，入滲增加', 'good');
         } else if (type === 'tree') {
           this.state.trees += count;
           this.state.water = clamp(this.state.water - count * 12, 0, 260);
           this.state.fertility = clamp(this.state.fertility + count * 2.6, 0, 100);
           this.state.sustain = clamp(this.state.sustain + count * 2.4, 0, 100);
-          UI.toast('🌳 种下 ' + count + ' 棵白相思　旱季有饲料，雨季有肥', 'good');
+          UI.toast('🌳 種下 ' + count + ' 棵白相思　旱季有飼料，雨季有肥', 'good');
         } else if (type === 'graze') {
           this.state.fertility = clamp(this.state.fertility + count * 1.1, 0, 100);
           this.state.sustain = clamp(this.state.sustain + count * 1.0, 0, 100);
-          UI.toast('🌿 轮牧练习：吃 ' + count + ' 块草场，给草留了口气', 'good');
+          UI.toast('🌿 輪牧練習：吃 ' + count + ' 塊草場，給草留了口氣', 'good');
         } else {
           this.state.water = clamp(this.state.water + count * 12, 0, 260);
           UI.toast('💧 打了 ' + count + ' 桶水', 'good');
@@ -454,24 +454,24 @@
     });
   };
 
-  /* ================= 调查点 ================= */
+  /* ================= 調查點 ================= */
   Game.investigate = function (p) {
     p.done = true;
     World.removeMarker(p.marker);
     const i = this.markers.indexOf(p.marker);
     if (i >= 0) this.markers.splice(i, 1);
     UI.SFX.open();
-    const html = '<div class="sub">土地退化现场调查</div><h1>' + p.data.title + '</h1>' +
+    const html = '<div class="sub">土地退化現場調查</div><h1>' + p.data.title + '</h1>' +
       '<div class="lead" style="margin-top:14px">' + p.data.text.replace(/\n/g, '<br>') + '</div>';
     UI.overlay(html, [{
-      label: '回答相关问题 ▸', onClick: () => {
+      label: '回答相關問題 ▸', onClick: () => {
         UI.closeOverlay();
         this.runQuiz({ arg: p.data.quiz, n: 1 }, () => {
           const need = (ACTS[this.actIndex].steps[this.stepIndex] || {}).n || 3;
-          // 统计「已完成」的调查点；之前误写成未完成数量，导致永远达不到 need
+          // 統計「已完成」的調查點；之前誤寫成未完成數量，導致永遠達不到 need
           const doneCount = this.probes.filter(x => x.done).length;
           if (doneCount >= need) { setTimeout(() => this.completeStep(), 260); }
-          else UI.toast('还需调查 ' + (need - doneCount) + ' 处迹象', 'note');
+          else UI.toast('還需調查 ' + (need - doneCount) + ' 處跡象', 'note');
         });
       }
     }]);
@@ -482,85 +482,85 @@
     if (!this.started || UI.mode) return;
     const pos = Player.pos;
 
-    // 1) 任务相关：探针
+    // 1) 任務相關：探針
     for (const p of this.probes) {
       if (p.done) continue;
       if (dist2(pos.x, pos.z, p.x, p.z) < 16) { this.investigate(p); return; }
     }
-    // 2) 任务要求的对话（优先于世界设施，确保剧情步骤能完成）
+    // 2) 任務要求的對話（優先於世界設施，確保劇情步驟能完成）
     const step = this.currentStep();
     const near = NPCs.nearest(pos, INTERACTION_RADIUS);
     if (step && step.k === 'talk') {
       const target = NPCs.get(step.npc);
-      // 目标村民在交互半径内时直接选它，避免被旁边更近的人挤掉导致任务对话打不开
+      // 目標村民在交互半徑內時直接選它，避免被旁邊更近的人擠掉導致任務對話打不開
       const nt = (target && dist2(pos.x, pos.z, target.x, target.z) < INTERACTION_RADIUS * INTERACTION_RADIUS)
         ? target : near;
       if (nt && nt.spec.id === step.npc) {
-        this.talkTo(step.npc, step.node || 'start', true);   // 此对话即为当前任务步骤
+        this.talkTo(step.npc, step.node || 'start', true);   // 此對話即為當前任務步驟
         return;
       }
     }
-    // 3) 普通 NPC 闲聊：必须排在世界设施之前，否则老井、水塘、苗圃、集市
-    //    区域里的村民会被打水/卖粮拦住，按 F 永远开不了口
+    // 3) 普通 NPC 閒聊：必須排在世界設施之前，否則老井、水塘、苗圃、集市
+    //    區域裏的村民會被打水/賣糧攔住，按 F 永遠開不了口
     if (near) { this.talkTo(near.spec.id, 'start'); return; }
-    // 4) 世界设施（附近没有村民时才生效）
+    // 4) 世界設施（附近沒有村民時才生效）
     const zone = S.zoneAt(pos.x, pos.z);
     if (zone && zone.id === 'well') { this.drawWater(90); return; }
     if (zone && zone.id === 'mare') { this.drawWater(70); return; }
     if (zone && zone.id === 'market') { this.sellGrain(); return; }
     if (zone && zone.id === 'nursery') { this.getSeedlings(); return; }
-    // 5) 任务点（小游戏 / 到达点）
+    // 5) 任務點（小遊戲 / 到達點）
     if (this.taskPoint) {
       const tp = this.taskPoint;
       if (dist2(pos.x, pos.z, tp.x, tp.z) < 72) {
-        if (tp.type === 'goto') return;    // 到达点无需交互
+        if (tp.type === 'goto') return;    // 到達點無需交互
         this.runMini(tp.type, tp.need, () => { }, true);
         return;
       }
     }
-    UI.toast('这里没有可做的事。附近有人的话，走近一点按 F。');
+    UI.toast('這裏沒有可做的事。附近有人的話，走近一點按 F。');
   };
 
   Game.drawWater = function (amount) {
     if (this._waterCD && Date.now() - this._waterCD < 6000) {
-      UI.toast('桶还在沉淀。等一会儿再打。', 'bad'); return;
+      UI.toast('桶還在沉澱。等一會兒再打。', 'bad'); return;
     }
     this._waterCD = Date.now();
     this.runMini('water', 4, () => { }, false);
   };
 
   Game.sellGrain = function () {
-    if (this.state.food < 30) { UI.toast('粮食太少，卖了家里就没得吃了。', 'bad'); return; }
+    if (this.state.food < 30) { UI.toast('糧食太少，賣了家裏就沒得吃了。', 'bad'); return; }
     const kg = Math.min(60, Math.floor(this.state.food - 20));
     this.state.food -= kg;
     this.state.cash += kg * 62;
     this.state.sustain = clamp(this.state.sustain - 0.4, 0, 100);
-    UI.toast('卖出 ' + kg + ' kg 小米　＋' + (kg * 62).toLocaleString('en-US') + ' F', 'good');
+    UI.toast('賣出 ' + kg + ' kg 小米　＋' + (kg * 62).toLocaleString('en-US') + ' F', 'good');
     this.syncHUD();
   };
 
   Game.getSeedlings = function () {
-    if (this._seedCD && Date.now() - this._seedCD < 25000) { UI.toast('苗圃今天已经给你了。树木要慢慢长。', 'bad'); return; }
-    if (this.state.cash < 500) { UI.toast('一株苗要钱。你先去集市卖点粮食。', 'bad'); return; }
+    if (this._seedCD && Date.now() - this._seedCD < 25000) { UI.toast('苗圃今天已經給你了。樹木要慢慢長。', 'bad'); return; }
+    if (this.state.cash < 500) { UI.toast('一株苗要錢。你先去集市賣點糧食。', 'bad'); return; }
     this._seedCD = Date.now();
     this.state.cash -= 500;
     this.syncHUD();
-    UI.toast('领取 3 株白相思苗（－500 F）。现在就把它们种下。', 'good');
+    UI.toast('領取 3 株白相思苗（－500 F）。現在就把它們種下。', 'good');
     setTimeout(() => this.runMini('tree', 3, () => { }, false), 320);
   };
 
-  /* ================= 季节与事件 ================= */
+  /* ================= 季節與事件 ================= */
   Game.triggerStorm = function (sec) {
     this._stormOn = true;
     this._stormT = sec || 20;
     World.setStorm(true);
     UI.flash(true);
-    UI.toast('🌪 哈马丹风来了 —— 空气中全是撒哈拉的沙', 'bad');
+    UI.toast('🌪 哈馬丹風來了 —— 空氣中全是撒哈拉的沙', 'bad');
     setTimeout(() => UI.flash(false), 900);
   };
 
   Game.updateWorld = function (dt) {
-    // 区域横幅
+    // 區域橫幅
     const z = S.zoneAt(Player.pos.x, Player.pos.z);
     if (z) {
       const id = z.id || z.name;
@@ -568,7 +568,7 @@
       UI.zoneBanner(z.name);
     }
 
-    // 到达检查
+    // 到達檢查
     const step = this.currentStep();
     if (step && step.k === 'goto' && step.site) {
       const s = siteById(step.site);
@@ -577,27 +577,27 @@
       }
     }
 
-    // 天数
+    // 天數
     this._dayT += dt;
     if (this._dayT > 17) {
       this._dayT = 0;
       this.state.day++;
       this.state.water = clamp(this.state.water - 3, 0, 260);
       this.state.food = clamp(this.state.food - 1.8, 0, 999);
-      if (this.state.water <= 5) { UI.toast('水快没了 —— 去旱谷或水塘打水', 'bad'); this.state.sustain = clamp(this.state.sustain - 0.6, 0, 100); }
-      if (this.state.food <= 10) { UI.toast('粮仓见底了', 'bad'); this.state.sustain = clamp(this.state.sustain - 0.8, 0, 100); }
-      // 雨季肥力缓慢恢复
+      if (this.state.water <= 5) { UI.toast('水快沒了 —— 去旱谷或水塘打水', 'bad'); this.state.sustain = clamp(this.state.sustain - 0.6, 0, 100); }
+      if (this.state.food <= 10) { UI.toast('糧倉見底了', 'bad'); this.state.sustain = clamp(this.state.sustain - 0.8, 0, 100); }
+      // 雨季肥力緩慢恢復
       if (this.state.season === 'rain') this.state.fertility = clamp(this.state.fertility + 0.25, 0, 100);
       this.syncHUD();
     }
 
-    // 沙尘暴计时
+    // 沙塵暴計時
     if (this._stormOn) {
       this._stormT -= dt;
       if (this._stormT <= 0) {
         this._stormOn = false;
         World.setStorm(false);
-        UI.toast('风停了。沙落在田里，也落在你的坑里。');
+        UI.toast('風停了。沙落在田裏，也落在你的坑裏。');
       }
     } else if (this.state.season === 'dry' && this.started && Math.random() < dt * 0.0035) {
       this.triggerStorm(16);
@@ -606,29 +606,29 @@
     // 靠近提示
     let prompt = null;
     const n = NPCs.nearest(Player.pos, INTERACTION_RADIUS);
-    if (n) prompt = '与 ' + n.spec.name + ' 交谈';
+    if (n) prompt = '與 ' + n.spec.name + ' 交談';
     else {
       for (const p of this.probes) {
-        if (!p.done && dist2(Player.pos.x, Player.pos.z, p.x, p.z) < 9) { prompt = '调查：' + p.data.title.slice(2); break; }
+        if (!p.done && dist2(Player.pos.x, Player.pos.z, p.x, p.z) < 9) { prompt = '調查：' + p.data.title.slice(2); break; }
       }
       if (!prompt && this.taskPoint && this.taskPoint.type !== 'goto' &&
         dist2(Player.pos.x, Player.pos.z, this.taskPoint.x, this.taskPoint.z) < 42) {
-        const t = { zai: '开始挖 zaï 坑', stone: '开始摆石线', tree: '开始种树', water: '打水' }[this.taskPoint.type];
+        const t = { zai: '開始挖 zaï 坑', stone: '開始擺石線', tree: '開始種樹', water: '打水' }[this.taskPoint.type];
         prompt = t;
       }
       if (!prompt) {
         const st = this.currentStep();
         if (st && st.k === 'talk') {
           const nn = NPCs.nearest(Player.pos, INTERACTION_RADIUS);
-          if (nn && nn.spec.id === st.npc) prompt = '交谈';
+          if (nn && nn.spec.id === st.npc) prompt = '交談';
         }
       }
       if (!prompt) {
         const zn = S.zoneAt(Player.pos.x, Player.pos.z);
         if (zn && zn.id === 'well') prompt = '在老井打水';
         else if (zn && zn.id === 'mare') prompt = '在水塘打水';
-        else if (zn && zn.id === 'market') prompt = '卖粮';
-        else if (zn && zn.id === 'nursery') prompt = '领取树苗';
+        else if (zn && zn.id === 'market') prompt = '賣糧';
+        else if (zn && zn.id === 'nursery') prompt = '領取樹苗';
       }
     }
     UI.prompt(UI.mode ? null : prompt);
@@ -638,9 +638,9 @@
     UI.setHUD(this.state);
   };
 
-  /* ================= 结局 ================= */
-  // end:auto 与未知 id 按累计抉择判定；终章三个选项各对应一种结局。
-  // 旧版 ENDINGS.stay 并不存在，导致终章一选完就抛 TypeError。
+  /* ================= 結局 ================= */
+  // end:auto 與未知 id 按累計抉擇判定；終章三個選項各對應一種結局。
+  // 舊版 ENDINGS.stay 並不存在，導致終章一選完就拋 TypeError。
   Game.pickEnding = function () {
     const c = this.choices || {};
     if (c.final_migrate) return 'south';
@@ -666,7 +666,7 @@
     UI.ending(e, stats, () => location.reload());
   };
 
-  /* ================= 输入 ================= */
+  /* ================= 輸入 ================= */
   Game.handleInteractInput = function (e) {
     if (e && e.preventDefault) e.preventDefault();
     if (e && e.repeat) return;
@@ -692,7 +692,7 @@
       } else if (code === 'Escape') {
         if (UI.mode === 'overlay') UI.closeOverlay();
         else if (UI.mode === 'dialogue') { UI.hideDialogue(); this._pendingNext = false; this._talkCompletesStep = false; this._talkGuard = null; }
-        else if (UI.mode === 'quiz') { /* 必须作答 */ }
+        else if (UI.mode === 'quiz') { /* 必須作答 */ }
       } else if (code === 'Space' || code === 'Enter') {
         if (UI.mode === 'dialogue') { UI._continue(); }
         else if (UI.mode === 'quiz') {
@@ -707,19 +707,19 @@
       const ba = document.getElementById('btn-act');
       if (ba) {
         ba.addEventListener('pointerup', e => this.handleInteractInput(e));
-        // 兼容没有 Pointer Events 的旧 WebView，避免与 pointerup 重复触发。
+        // 兼容沒有 Pointer Events 的舊 WebView，避免與 pointerup 重複觸發。
         if (!window.PointerEvent) ba.addEventListener('click', e => this.handleInteractInput(e));
       }
     };
 
   Game.toggleView = function () {
     Player.toggleView();
-    UI.toast(Player.firstPerson ? '已切换到第一人称' : '已切换到第三人称', 'good');
+    UI.toast(Player.firstPerson ? '已切換到第一人稱' : '已切換到第三人稱', 'good');
     const btn = document.getElementById('btn-view');
-    if (btn) btn.textContent = Player.firstPerson ? '👤 第一人称' : '👁 视角';
+    if (btn) btn.textContent = Player.firstPerson ? '👤 第一人稱' : '👁 視角';
   };
 
-  /* ================= 主循环 ================= */
+  /* ================= 主循環 ================= */
   Game.startLoop = function () {
     const clock = new THREE.Clock();
     const canvas = document.getElementById('scene');
@@ -742,24 +742,24 @@
         }
         UI.drawMinimap(Player.pos, Player.yaw, targets);
 
-        // 任务导航箭头：把当前优先目标投影到屏幕，始终指向任务方向
+        // 任務導航箭頭：把當前優先目標投影到屏幕，始終指向任務方向
         if (UI.mode) {
           UI.hideNavArrow();
         } else if (targets.length) {
-          // 选取离玩家最近的目标作为导航方向
+          // 選取離玩家最近的目標作為導航方向
           let t = targets[0], bd = Infinity;
           for (const tt of targets) {
             const d = dist2(Player.pos.x, Player.pos.z, tt.x, tt.z);
             if (d < bd) { bd = d; t = tt; }
           }
           const dist = Math.sqrt(bd);
-          if (dist < 14) { UI.hideNavArrow(); }   // 已抵达：隐藏
+          if (dist < 14) { UI.hideNavArrow(); }   // 已抵達：隱藏
           else {
             const ty = heightAt(t.x, t.z) + 1.4;
             const wp = new THREE.Vector3(t.x, ty, t.z).project(World.camera);
-            const behind = wp.z > 1;               // 目标在相机身后
+            const behind = wp.z > 1;               // 目標在相機身後
             let nx = wp.x, ny = wp.y;
-            if (behind) { nx = -nx; ny = -ny; }     // 翻转屏幕方向，指向正确侧
+            if (behind) { nx = -nx; ny = -ny; }     // 翻轉屏幕方向，指向正確側
             const sx = (nx * 0.5 + 0.5) * window.innerWidth;
             const sy = (-ny * 0.5 + 0.5) * window.innerHeight;
             const onScreen = !behind && Math.abs(wp.x) <= 1 && Math.abs(wp.y) <= 1;
@@ -776,7 +776,7 @@
 
   global.SOS.Game = Game;
 
-  /* 启动（经典脚本由 ESM 动态注入，此时 DOMContentLoaded 可能已触发，故需按 readyState 兜底） */
+  /* 啓動（經典腳本由 ESM 動態注入，此時 DOMContentLoaded 可能已觸發，故需按 readyState 兜底） */
   let _booted = false;
   function bootOnce() {
     if (_booted) return;
@@ -785,7 +785,7 @@
     catch (err) {
       console.error(err);
       const t = document.getElementById('ld-tip');
-      if (t) t.textContent = '启动失败：' + err.message;
+      if (t) t.textContent = '啓動失敗：' + err.message;
     }
   }
   if (document.readyState === 'loading') {

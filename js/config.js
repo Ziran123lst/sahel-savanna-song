@@ -1,32 +1,32 @@
 /* ================================================================
- *  萨赫勒之歌 · Song of the Sahel
- *  config.js —— 世界常量、区域定义、数学与噪声工具
+ *  薩赫勒之歌 · Song of the Sahel
+ *  config.js —— 世界常量、區域定義、數學與噪聲工具
  * ================================================================ */
 (function (global) {
   'use strict';
 
   const WORLD = {
-    size: 460,          // 地形边长（世界单位）
-    seg: 150,           // 地形细分
-    half: 230,          // 半径
-    water: { x: -155, z: 46 }   // 旱谷水塘中心（低洼）
+    size: 460,          // 地形邊長（世界單位）
+    seg: 150,           // 地形細分
+    half: 230,          // 半徑
+    water: { x: -155, z: 46 }   // 旱谷水塘中心（低窪）
   };
 
-  /* ---------- 据点（Sites）：决定地形、植被与建筑布局 ---------- */
+  /* ---------- 據點（Sites）：決定地形、植被與建築佈局 ---------- */
   const SITES = [
     { id: 'village', name: '科多戈村',   x:   0, z:  48, r: 40, kind: 'village' },
-    { id: 'farm',    name: '自家农田',   x: -52, z: -14, r: 34, kind: 'farm'    },
-    { id: 'demo',    name: '示范田',     x:  44, z: -34, r: 28, kind: 'demo'    },
-    { id: 'well',    name: '老井与旱谷', x:-140, z:  52, r: 30, kind: 'well'    },
-    { id: 'mare',    name: '季节性水塘', x: 108, z: -58, r: 32, kind: 'mare'    },
-    { id: 'camp',    name: '牧民营地',   x: 128, z:-118, r: 28, kind: 'camp'    },
-    { id: 'nursery', name: '绿色长城苗圃', x:-30, z:-152, r: 34, kind: 'nursery' },
-    { id: 'dunes',   name: '沙丘前线',   x:  74, z:-180, r: 52, kind: 'dunes'   },
-    { id: 'market',  name: '卡亚镇集市', x:   6, z: 172, r: 42, kind: 'market'  },
-    { id: 'station', name: '南下车站',   x: 104, z: 196, r: 26, kind: 'station' }
+    { id: 'farm',    name: '自家農田',   x: -52, z: -14, r: 34, kind: 'farm'    },
+    { id: 'demo',    name: '示範田',     x:  44, z: -34, r: 28, kind: 'demo'    },
+    { id: 'well',    name: '老井與旱谷', x:-140, z:  52, r: 30, kind: 'well'    },
+    { id: 'mare',    name: '季節性水塘', x: 108, z: -58, r: 32, kind: 'mare'    },
+    { id: 'camp',    name: '牧民營地',   x: 128, z:-118, r: 28, kind: 'camp'    },
+    { id: 'nursery', name: '綠色長城苗圃', x:-30, z:-152, r: 34, kind: 'nursery' },
+    { id: 'dunes',   name: '沙丘前線',   x:  74, z:-180, r: 52, kind: 'dunes'   },
+    { id: 'market',  name: '卡亞鎮集市', x:   6, z: 172, r: 42, kind: 'market'  },
+    { id: 'station', name: '南下車站',   x: 104, z: 196, r: 26, kind: 'station' }
   ];
 
-  /* ---------- 调色板 ---------- */
+  /* ---------- 調色板 ---------- */
   const COLOR = {
     soil:      0x8a4b23,
     soilDry:   0xb07a43,
@@ -48,15 +48,15 @@
     skin:      [0x6b4326, 0x7d5432, 0x54331e, 0x8a5c36]
   };
 
-  /* =================== 数学 / 噪声 =================== */
+  /* =================== 數學 / 噪聲 =================== */
   const clamp = (v, a, b) => v < a ? a : (v > b ? b : v);
   const lerp = (a, b, t) => a + (b - a) * t;
   const smooth = t => t * t * (3 - 2 * t);
   const dist2 = (ax, az, bx, bz) => { const dx = ax - bx, dz = az - bz; return dx * dx + dz * dz; };
-  // NPC/设施交互统一半径，提示与 F/E 键触发必须使用同一阈值。
+  // NPC/設施交互統一半徑，提示與 F/E 鍵觸發必須使用同一閾值。
   const INTERACTION_RADIUS = 4.6;
 
-  // 确定性伪随机
+  // 確定性偽隨機
   function hash2(x, y) {
     let h = Math.sin(x * 127.1 + y * 311.7) * 43758.5453123;
     return h - Math.floor(h);
@@ -77,7 +77,7 @@
     }
     return v;
   }
-  // 可复现随机数生成器
+  // 可復現隨機數生成器
   function makeRng(seed) {
     let s = seed >>> 0 || 1;
     return function () {
@@ -88,27 +88,27 @@
     };
   }
 
-  /* =================== 地形高度场 ===================
-   *  z 越小 = 越北 = 越干旱（沙丘）
-   *  z 越大 = 越南 = 越湿润（镇、农田）
+  /* =================== 地形高度場 ===================
+   *  z 越小 = 越北 = 越乾旱（沙丘）
+   *  z 越大 = 越南 = 越濕潤（鎮、農田）
    */
   function baseHeight(x, z) {
-    // 1) 纬度梯度：北高（沙丘起伏）、南低平
+    // 1) 緯度梯度：北高（沙丘起伏）、南低平
     const t = clamp((z + WORLD.half) / WORLD.size, 0, 1);      // 0=北 1=南
     const aridity = 1 - t;                                     // 北=1
     // 2) 大尺度起伏
     let h = (fbm(x * 0.0075, z * 0.0075, 4) - 0.5) * 16;
-    // 3) 沙丘波纹（北部强）
+    // 3) 沙丘波紋（北部強）
     const dune = Math.sin(x * 0.055 + fbm(x * 0.02, z * 0.02, 2) * 6.0) *
                  Math.cos(z * 0.035 + x * 0.012) * 5.2;
     h += dune * aridity;
     h += (fbm(x * 0.05, z * 0.05, 3) - 0.5) * 2.0;
-    // 4) 北部整体抬高
+    // 4) 北部整體抬高
     h += aridity * aridity * 5.0;
     return h;
   }
 
-  // 低洼：旱谷水塘
+  // 低窪：旱谷水塘
   function pondBasin(x, z) {
     const d = Math.sqrt(dist2(x, z, WORLD.water.x, WORLD.water.z));
     const r = 34;
@@ -140,18 +140,18 @@
     return baseHeight(x, z) + pondBasin(x, z) + flatten(x, z);
   }
 
-  /* 干旱度（0=湿润南 1=沙漠北）：用于选植被与地面颜色 */
+  /* 乾旱度（0=濕潤南 1=沙漠北）：用於選植被與地面顏色 */
   function aridityAt(x, z) {
     const t = clamp((z + WORLD.half) / WORLD.size, 0, 1);
     let a = 1 - t;
     a += (fbm(x * 0.012 + 40, z * 0.012 + 11, 3) - 0.5) * 0.28;
-    // 水塘周边较湿润
+    // 水塘周邊較濕潤
     const dp = Math.sqrt(dist2(x, z, WORLD.water.x, WORLD.water.z));
     if (dp < 70) a -= 0.30 * (1 - dp / 70);
     return clamp(a, 0, 1);
   }
 
-  /* 某点所属区域名（用于横幅） */
+  /* 某點所屬區域名（用於橫幅） */
   function zoneAt(x, z) {
     let best = null, bd = 1e9;
     for (const s of SITES) {
@@ -160,9 +160,9 @@
     }
     if (best) return best;
     const a = aridityAt(x, z);
-    if (a > 0.82) return { name: '沙漠边缘 · 撒哈拉南缘', kind: 'dunes' };
-    if (a > 0.6) return { name: '萨赫勒灌木草原', kind: 'bush' };
-    return { name: '稀树草原带', kind: 'savanna' };
+    if (a > 0.82) return { name: '沙漠邊緣 · 撒哈拉南緣', kind: 'dunes' };
+    if (a > 0.6) return { name: '薩赫勒灌木草原', kind: 'bush' };
+    return { name: '稀樹草原帶', kind: 'savanna' };
   }
 
   global.SOS = {

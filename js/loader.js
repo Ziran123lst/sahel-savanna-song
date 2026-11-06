@@ -1,13 +1,13 @@
 /* ================================================================
- *  loader.js —— GLB 模型预加载（基于 GLTFLoader）
- *  通过 window.GLTFLoader 加载；preloadAll 并行加载并回报进度。
- *  场景中的动物用 instance() 克隆（SkeletonUtils）；玩家与 NPC 统一通过公开接口取模型。
+ *  loader.js —— GLB 模型預加載（基於 GLTFLoader）
+ *  通過 window.GLTFLoader 加載；preloadAll 並行加載並回報進度。
+ *  場景中的動物用 instance() 克隆（SkeletonUtils）；玩家與 NPC 統一通過公開接口取模型。
  * ================================================================ */
 (function (global) {
   'use strict';
 
-  // 版本号：每次发布都会改变，强制浏览器重新拉取最新 JS 与模型，
-  // 避免 GitHub Pages / 浏览器缓存导致“改动不生效”。
+  // 版本號：每次發佈都會改變，強制瀏覽器重新拉取最新 JS 與模型，
+  // 避免 GitHub Pages / 瀏覽器緩存導致“改動不生效”。
   const GAME_VER = 'v20251021d';
   const vurl = p => p + (p.indexOf('?') >= 0 ? '&' : '?') + 'v=' + GAME_VER;
 
@@ -28,8 +28,8 @@
           g => { this._gltfs[url] = g; resolve(g); },
           undefined,
           err => {
-            console.warn('[Models] 加载失败，降级为占位模型：', path, err);
-            this._gltfs[url] = null;   // 标记失败，避免重复请求
+            console.warn('[Models] 加載失敗，降級為佔位模型：', path, err);
+            this._gltfs[url] = null;   // 標記失敗，避免重複請求
             resolve(null);
           }
         );
@@ -46,14 +46,14 @@
       ));
     },
 
-    // 取已预加载的 gltf（未加载返回 null）
+    // 取已預加載的 gltf（未加載返回 null）
     get(path) {
       return this._gltfs[vurl(path)] || null;
     },
 
-    // 返回一个独立克隆的场景（用于可重复放置的动物模型）。
-    // 必须用 SkeletonUtils.clone，否则带骨骼的 SkinnedMesh 用 .clone(true)
-    // 会共用同一份 skeleton → 渲染错位、体积巨大、原地乱转。
+    // 返回一個獨立克隆的場景（用於可重複放置的動物模型）。
+    // 必須用 SkeletonUtils.clone，否則帶骨骼的 SkinnedMesh 用 .clone(true)
+    // 會共用同一份 skeleton → 渲染錯位、體積巨大、原地亂轉。
     instance(path) {
       const g = this._gltfs[vurl(path)];
       if (!g) return null;
@@ -61,7 +61,7 @@
       try {
         scene = (window.SkeletonUtils ? window.SkeletonUtils.clone(g.scene) : g.scene.clone(true));
       } catch (e) {
-        console.warn('[Models] 骨骼克隆失败，回退普通克隆：', path, e);
+        console.warn('[Models] 骨骼克隆失敗，回退普通克隆：', path, e);
         scene = g.scene.clone(true);
       }
       return { scene, animations: g.animations, src: g };

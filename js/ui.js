@@ -1,12 +1,12 @@
 /* ================================================================
- *  ui.js —— 界面：HUD · 对话 · 问答 · 日志 · 笔记 · 小游戏 · 小地图
+ *  ui.js —— 界面：HUD · 對話 · 問答 · 日誌 · 筆記 · 小遊戲 · 小地圖
  * ================================================================ */
 (function (global) {
   'use strict';
   const S = global.SOS;
   const $ = id => document.getElementById(id);
 
-  /* ---------------- 音效（WebAudio 合成，无外部资源） ---------------- */
+  /* ---------------- 音效（WebAudio 合成，無外部資源） ---------------- */
   const SFX = {
     ctx: null, on: true, master: 0.8,
     _init() { if (!this.ctx) { try { this.ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { this.on = false; } } },
@@ -56,13 +56,13 @@
     $('dlg-continue').onclick = () => this._continue();
     $('quiz-close').onclick = () => this._closeQuiz();
 
-    // 小地图背景预渲染
+    // 小地圖背景預渲染
     this._renderMinimapBase();
-    // 导航箭头元素
+    // 導航箭頭元素
     this._navArrow = $('nav-arrow');
   };
 
-  /* ---------------- 设置面板 ---------------- */
+  /* ---------------- 設置面板 ---------------- */
   UI.openSettings = function () {
     const panel = $('settings-panel');
     if (!panel) return;
@@ -71,14 +71,14 @@
       '<div class="set-block"><div class="set-title">' + title + '</div>' +
       (hint ? '<div class="set-hint">' + hint + '</div>' : '') + '<div class="set-rows"></div></div>';
 
-    // 滑块行
+    // 滑塊行
     const slider = (key, label, min, max, step, fmt) => {
       const v = D[key];
       return '<label class="set-row"><span class="set-label">' + label + '</span>' +
         '<input type="range" data-k="' + key + '" min="' + min + '" max="' + max + '" step="' + step + '" value="' + v + '">' +
         '<b class="set-val" data-v="' + key + '">' + (fmt ? fmt(v) : v) + '</b></label>';
     };
-    // 开关行
+    // 開關行
     const toggle = (key, label) =>
       '<label class="set-row"><span class="set-label">' + label + '</span>' +
       '<input type="checkbox" data-k="' + key + '" class="set-chk"' + (D[key] ? ' checked' : '') + '></label>';
@@ -90,33 +90,33 @@
       '</select></label>';
 
     panel.innerHTML =
-      '<div class="set-head"><span class="set-h1">设置</span><button id="set-close" class="set-close">✕</button></div>' +
+      '<div class="set-head"><span class="set-h1">設置</span><button id="set-close" class="set-close">✕</button></div>' +
       '<div class="set-scroll">' +
-      block('视角与操作', '开放世界常见手感调节') +
-      block('画面与声音') +
+      block('視角與操作', '開放世界常見手感調節') +
+      block('畫面與聲音') +
       '</div>' +
-      '<div class="set-foot"><button id="set-reset" class="set-reset">恢复默认</button>' +
-      '<span class="set-tip">设置自动保存到本机</span></div>';
+      '<div class="set-foot"><button id="set-reset" class="set-reset">恢復默認</button>' +
+      '<span class="set-tip">設置自動保存到本機</span></div>';
 
     const r1 = panel.querySelector('.set-block:nth-child(1) .set-rows');
     r1.innerHTML =
-      slider('lookSensitivity', '滑动视角灵敏度', 0.3, 3.0, 0.1, v => v.toFixed(1) + '×') +
-      slider('moveSensitivity', '移动灵敏度', 0.4, 2.0, 0.1, v => v.toFixed(1) + '×') +
-      slider('cameraDist', '相机距离', 0.6, 1.6, 0.1, v => v.toFixed(1) + '×') +
-      toggle('invertY', '反转视角（上下）') +
-      toggle('invertX', '反转视角（左右）') +
-      toggle('invertMove', '反转移动方向');
+      slider('lookSensitivity', '滑動視角靈敏度', 0.3, 3.0, 0.1, v => v.toFixed(1) + '×') +
+      slider('moveSensitivity', '移動靈敏度', 0.4, 2.0, 0.1, v => v.toFixed(1) + '×') +
+      slider('cameraDist', '相機距離', 0.6, 1.6, 0.1, v => v.toFixed(1) + '×') +
+      toggle('invertY', '反轉視角（上下）') +
+      toggle('invertX', '反轉視角（左右）') +
+      toggle('invertMove', '反轉移動方向');
 
     const r2 = panel.querySelector('.set-block:nth-child(2) .set-rows');
     r2.innerHTML =
       slider('volume', '音量', 0, 1, 0.05, v => Math.round(v * 100) + '%') +
-      select('quality', '画质', [
-        { v: 'high', t: '高（阴影·高像素比）' },
+      select('quality', '畫質', [
+        { v: 'high', t: '高（陰影·高像素比）' },
         { v: 'medium', t: '中（平衡）' },
-        { v: 'low', t: '低（更流畅）' }
+        { v: 'low', t: '低（更流暢）' }
       ]);
 
-    // 绑定事件
+    // 綁定事件
     panel.querySelectorAll('input[data-k]').forEach(inp => {
       const k = inp.dataset.k;
       const handler = () => {
@@ -142,16 +142,16 @@
     $('set-close').onclick = () => this.closeSettings();
     $('set-reset').onclick = () => {
       S.Settings.reset();
-      this.openSettings();   // 重建以反映默认值
+      this.openSettings();   // 重建以反映默認值
     };
 
-    // Esc 关闭（先移除旧监听，避免重复打开/重置时叠加多个监听器）
+    // Esc 關閉（先移除舊監聽，避免重複打開/重置時疊加多個監聽器）
     if (this._setEsc) window.removeEventListener('keydown', this._setEsc);
     this._setEsc = e => { if (e.code === 'Escape') this.closeSettings(); };
     window.addEventListener('keydown', this._setEsc);
 
     this._settingsOpen = true;
-    this.mode = 'settings';     // 占用 UI.mode，使玩家移动/交互在设置期间暂停
+    this.mode = 'settings';     // 佔用 UI.mode，使玩家移動/交互在設置期間暫停
     panel.classList.remove('hidden');
     SFX.open();
   };
@@ -166,8 +166,8 @@
 
   UI.isSettingsOpen = function () { return !!this._settingsOpen; };
 
-  /* 任务导航箭头：根据目标在屏幕上的投影，指向并提示距离。
-   * sx,sy 为目标屏幕坐标；onScreen 表示目标是否落在可视范围内 */
+  /* 任務導航箭頭：根據目標在屏幕上的投影，指向並提示距離。
+   * sx,sy 為目標屏幕座標；onScreen 表示目標是否落在可視範圍內 */
   UI.navArrow = function (sx, sy, onScreen, distText) {
     const el = this._navArrow;
     if (!el) return;
@@ -176,8 +176,8 @@
     const ang = Math.atan2(sy - cy, sx - cx);
     const edge = Math.min(W, H) / 2 - 60;
     const r = onScreen
-      ? Math.min(edge, Math.hypot(sx - cx, sy - cy) * 0.9)   // 屏内：贴近目标
-      : edge;                                                  // 屏外：贴边缘当指南针
+      ? Math.min(edge, Math.hypot(sx - cx, sy - cy) * 0.9)   // 屏內：貼近目標
+      : edge;                                                  // 屏外：貼邊緣當指南針
     el.classList.remove('hidden');
     el.style.left = (cx + Math.cos(ang) * r) + 'px';
     el.style.top = (cy + Math.sin(ang) * r) + 'px';
@@ -226,7 +226,7 @@
     const b = $('zone-banner');
     b.querySelector('span').textContent = name;
     b.classList.remove('hidden');
-    // 重启动画
+    // 重啓動畫
     const s = b.querySelector('span');
     s.style.animation = 'none'; void s.offsetWidth; s.style.animation = '';
     clearTimeout(this._zoneT);
@@ -254,10 +254,10 @@
     f.classList.toggle('on', !!on);
   };
 
-  /* ---------------- 对话 ---------------- */
+  /* ---------------- 對話 ---------------- */
   UI.showDialogue = function (spec, node, handler) {
     const who = spec || { face: '👤', name: '村民', role: '' };
-    // 兼容旧版 HTML：优先按 id 取，取不到再按类名取，避免 null.style 抛错
+    // 兼容舊版 HTML：優先按 id 取，取不到再按類名取，避免 null.style 拋錯
     const nextEl = $('dlg-next') || document.querySelector('.dlg-next');
     $('dlg-avatar').textContent = who.face || '👤';
     $('dlg-name').textContent = who.name || '';
@@ -278,7 +278,7 @@
       if (nextEl) nextEl.style.display = 'flex';
     }
     $('dialogue').classList.remove('hidden');
-    // 所有 DOM 操作成功后再占用模态：中途异常不会把 UI.mode 永久卡在 dialogue
+    // 所有 DOM 操作成功後再佔用模態：中途異常不會把 UI.mode 永久卡在 dialogue
     this.mode = 'dialogue';
     this._dlgHandler = handler;
     this._dlgNode = node;
@@ -296,19 +296,19 @@
     if (this.mode === 'dialogue') this.mode = null;
   };
 
-  /* ---------------- 问答 ---------------- */
+  /* ---------------- 問答 ---------------- */
   UI.showQuiz = function (item, onDone) {
     this.mode = 'quiz';
     this._quizHandler = onDone;
     $('quiz-tag').textContent = item.groupLabel;
-    $('quiz-src').textContent = item.group === 'sahel_climate' ? 'DSE 地理 · 天气与气候 / 旱地环境'
-      : item.group === 'desertification' ? 'DSE 地理 · 消失中的绿色植被'
-        : item.group === 'soil' ? 'DSE 地理 · 旱地环境 / 土壤'
-          : item.group === 'techniques' ? 'DSE 地理 · 可持续土地管理'
-            : item.group === 'food' ? 'DSE 地理 · 农业与粮食安全'
-              : item.group === 'people' ? 'DSE 地理 · 人地关系 / 资源管理'
-                : item.group === 'migration' ? 'DSE 地理 · 人口迁移 / 可持续城市'
-                  : 'DSE 地理 · 可持续发展';
+    $('quiz-src').textContent = item.group === 'sahel_climate' ? 'DSE 地理 · 天氣與氣候 / 旱地環境'
+      : item.group === 'desertification' ? 'DSE 地理 · 消失中的綠色植被'
+        : item.group === 'soil' ? 'DSE 地理 · 旱地環境 / 土壤'
+          : item.group === 'techniques' ? 'DSE 地理 · 可持續土地管理'
+            : item.group === 'food' ? 'DSE 地理 · 農業與糧食安全'
+              : item.group === 'people' ? 'DSE 地理 · 人地關係 / 資源管理'
+                : item.group === 'migration' ? 'DSE 地理 · 人口遷移 / 可持續城市'
+                  : 'DSE 地理 · 可持續發展';
     $('quiz-stem').innerHTML = item.q.replace(/\n/g, '<br>');
     const fig = $('quiz-figure');
     if (item.fig) { fig.textContent = item.fig; fig.classList.remove('hidden'); }
@@ -344,11 +344,11 @@
     const fb = $('quiz-feedback');
     const head = $('fb-head');
     head.className = 'fb-head ' + (ok ? 'ok' : 'no');
-    head.textContent = ok ? '✔ 答对了' : '✘ 正确答案：' + ['A', 'B', 'C', 'D'][item.a];
+    head.textContent = ok ? '✔ 答對了' : '✘ 正確答案：' + ['A', 'B', 'C', 'D'][item.a];
     $('fb-body').innerHTML = item.exp;
     $('fb-reward').textContent = ok
-      ? '＋ 知识点「' + item.note.t + '」　＋ 可持续指数 2'
-      : '知识点仍会记录「' + item.note.t + '」，但可持续指数不增加';
+      ? '＋ 知識點「' + item.note.t + '」　＋ 可持續指數 2'
+      : '知識點仍會記錄「' + item.note.t + '」，但可持續指數不增加';
     fb.classList.remove('hidden');
     ok ? SFX.good() : SFX.bad();
     this._quizOk = ok;
@@ -366,7 +366,7 @@
   /* ---------------- 遮罩面板 ---------------- */
   UI.overlay = function (html, buttons, onClose) {
     this.mode = 'overlay';
-    // 可选关闭回调：让「标题 → 操作说明 → 返回标题」这类流程在点击按钮或按 Esc 时都能回到来处
+    // 可選關閉回調：讓「標題 → 操作説明 → 返回標題」這類流程在點擊按鈕或按 Esc 時都能回到來處
     this._overlayOnClose = onClose || null;
     const p = $('ov-panel');
     p.innerHTML = html;
@@ -390,25 +390,25 @@
     if (this.mode === 'overlay') this.mode = null;
     const cb = this._overlayOnClose;
     this._overlayOnClose = null;
-    if (cb) { try { cb(); } catch (e) { console.error('[UI] overlay onClose 失败：', e); } }
+    if (cb) { try { cb(); } catch (e) { console.error('[UI] overlay onClose 失敗：', e); } }
   };
 
-  /* ---------------- 章节引言 ---------------- */
+  /* ---------------- 章節引言 ---------------- */
   UI.chapterCard = function (act, onStart) {
     const html =
       '<div class="sub">CHAPTER · ' + act.chapter + '</div>' +
       '<h1>' + act.title + '</h1>' +
       '<div class="lead" style="margin-top:14px">' + act.intro.replace(/\n/g, '<br>') + '</div>';
-    this.overlay(html, [{ label: '进入本章 ▸', onClick: () => { this.closeOverlay(); onStart(); } }]);
+    this.overlay(html, [{ label: '進入本章 ▸', onClick: () => { this.closeOverlay(); onStart(); } }]);
   };
 
-  /* ---------------- 任务日志 ---------------- */
+  /* ---------------- 任務日誌 ---------------- */
   UI.journal = function () {
     const g = this.game;
-    let html = '<h1>任务日志</h1><div class="sub">JOURNAL · 阿马杜的选择</div>';
+    let html = '<h1>任務日誌</h1><div class="sub">JOURNAL · 阿馬杜的選擇</div>';
     S.ACTS.forEach(act => {
       const st = g.actState[act.id];
-      const state = !st ? '未开始' : (st.done ? '已完成' : '进行中');
+      const state = !st ? '未開始' : (st.done ? '已完成' : '進行中');
       html += '<h2>' + act.chapter + ' · ' + act.title + '　<span class="badge">' + state + '</span></h2>';
       act.steps.forEach((s, i) => {
         const done = st && i < st.step;
@@ -417,27 +417,27 @@
         html += '</div>';
       });
     });
-    html += '<h2>关键决定</h2>';
+    html += '<h2>關鍵決定</h2>';
     const flags = g.flags;
     const flagRows = [
-      ['与牧民达成协议', flags.peace_deal],
-      ['与牧民关系紧张', flags.conflict],
-      ['向放贷人借了钱', flags.debt],
-      ['学会 zaï 技术', flags.learned_zai],
-      ['意愿：留下', flags.wish_stay],
-      ['意愿：外出', flags.wish_go]
+      ['與牧民達成協議', flags.peace_deal],
+      ['與牧民關係緊張', flags.conflict],
+      ['向放貸人借了錢', flags.debt],
+      ['學會 zaï 技術', flags.learned_zai],
+      ['意願：留下', flags.wish_stay],
+      ['意願：外出', flags.wish_go]
     ];
     html += flagRows.map(r => '<div class="kv"><span>' + r[0] + '</span><b>' + (r[1] ? '是' : '—') + '</b></div>').join('');
-    this.overlay(html, [{ label: '关闭', ghost: true, onClick: () => this.closeOverlay() }]);
+    this.overlay(html, [{ label: '關閉', ghost: true, onClick: () => this.closeOverlay() }]);
   };
 
-  /* ---------------- 地理笔记 ---------------- */
+  /* ---------------- 地理筆記 ---------------- */
   UI.notes = function () {
     const g = this.game;
     const groups = {};
     S.NOTES.forEach(n => { (groups[n.g] = groups[n.g] || { label: n.label, items: [] }).items.push(n); });
-    let html = '<h1>地理笔记</h1><div class="sub">DSE GEOGRAPHY NOTES · 已收集 ' + g.state.notes.size + ' / ' + S.NOTES.length + '</div>';
-    html += '<p style="margin-bottom:12px">答对题目可解锁知识点。考试前可以回来复习——这里的每一条都可能出现在资料为本题里。</p>';
+    let html = '<h1>地理筆記</h1><div class="sub">DSE GEOGRAPHY NOTES · 已收集 ' + g.state.notes.size + ' / ' + S.NOTES.length + '</div>';
+    html += '<p style="margin-bottom:12px">答對題目可解鎖知識點。考試前可以回來複習——這裏的每一條都可能出現在資料為本題裏。</p>';
     Object.keys(groups).forEach(k => {
       const gr = groups[k];
       html += '<h2>' + gr.label + '</h2>';
@@ -445,81 +445,81 @@
         const got = g.state.notes.has(n.id);
         html += '<div class="note-card' + (got ? '' : ' locked') + '">' +
           '<div class="nt">' + (got ? '' : '🔒 ') + n.t + '</div>' +
-          (got ? '<div class="nd">' + n.d + '</div>' : '<div class="nd">完成相关题目后解锁</div>') +
+          (got ? '<div class="nd">' + n.d + '</div>' : '<div class="nd">完成相關題目後解鎖</div>') +
           '</div>';
       });
     });
-    this.overlay(html, [{ label: '关闭', ghost: true, onClick: () => this.closeOverlay() }]);
+    this.overlay(html, [{ label: '關閉', ghost: true, onClick: () => this.closeOverlay() }]);
   };
 
-  /* ---------------- 操作说明 ---------------- */
+  /* ---------------- 操作説明 ---------------- */
   UI.help = function (fromTitle) {
     const rows = [
-      ['W A S D / 方向键', '移动'],
+      ['W A S D / 方向鍵', '移動'],
       ['Shift（按住）', '奔跑'],
-      ['空格', '跳跃 / 对话继续 / 关闭面板'],
-      ['鼠标左键拖动', '旋转视角'],
-      ['滚轮', '拉近／拉远镜头'],
-      ['F / E', '与人交谈、调查'],
-      ['Tab 或 J', '任务日志'],
-      ['N', '地理笔记'],
-      ['H', '操作说明'],
-      ['Esc', '关闭当前面板']
+      ['空格', '跳躍 / 對話繼續 / 關閉面板'],
+      ['鼠標左鍵拖動', '旋轉視角'],
+      ['滾輪', '拉近／拉遠鏡頭'],
+      ['F / E', '與人交談、調查'],
+      ['Tab 或 J', '任務日誌'],
+      ['N', '地理筆記'],
+      ['H', '操作説明'],
+      ['Esc', '關閉當前面板']
     ];
-    let html = '<h1>操作说明</h1><div class="sub">CONTROLS</div><div style="margin-top:10px">';
+    let html = '<h1>操作説明</h1><div class="sub">CONTROLS</div><div style="margin-top:10px">';
     html += rows.map(r => '<div class="help-key"><span>' + r[0] + '</span><span>' + r[1] + '</span></div>').join('');
-    html += '</div><h2>关于这个游戏</h2>' +
-      '<p>你是 Amadou，萨赫勒地区科多戈村的农民。旱季比往年更长，粮仓只剩两袋小米，父亲十一年前去了南方。' +
-      '你要在<b>修复土地</b>、<b>维持家计</b>与<b>是否离开</b>之间做决定。</p>' +
-      '<p style="margin-top:10px">所有题目按<b>香港中学文凭试（DSE）地理科</b>的课程框架设计：' +
-      '旱地环境、荒漠化、农业与粮食安全、人口迁移、可持续发展。答错也会记下解析——这是学习的一部分。</p>';
+    html += '</div><h2>關於這個遊戲</h2>' +
+      '<p>你是 Amadou，薩赫勒地區科多戈村的農民。旱季比往年更長，糧倉只剩兩袋小米，父親十一年前去了南方。' +
+      '你要在<b>修復土地</b>、<b>維持家計</b>與<b>是否離開</b>之間做決定。</p>' +
+      '<p style="margin-top:10px">所有題目按<b>香港中學文憑試（DSE）地理科</b>的課程框架設計：' +
+      '旱地環境、荒漠化、農業與糧食安全、人口遷移、可持續發展。答錯也會記下解析——這是學習的一部分。</p>';
     const btns = [
-      { label: '音效：' + (SFX.on ? '开' : '关'), ghost: true, onClick: () => { SFX.on = !SFX.on; this.help(fromTitle); } },
-      { label: fromTitle ? '返回标题' : '关闭', onClick: () => this.closeOverlay() }
+      { label: '音效：' + (SFX.on ? '開' : '關'), ghost: true, onClick: () => { SFX.on = !SFX.on; this.help(fromTitle); } },
+      { label: fromTitle ? '返回標題' : '關閉', onClick: () => this.closeOverlay() }
     ];
-    // 从标题页进来时，无论点「返回标题」还是按 Esc，都回到标题，避免游戏卡在未开始状态
+    // 從標題頁進來時，無論點「返回標題」還是按 Esc，都回到標題，避免遊戲卡在未開始狀態
     const back = fromTitle
       ? () => this.title(this._titleArgs && this._titleArgs.onStart, this._titleArgs && this._titleArgs.onSkipStory)
       : null;
     this.overlay(html, btns, back);
   };
 
-  /* ---------------- 小游戏 ---------------- */
+  /* ---------------- 小遊戲 ---------------- */
   const MINI = {
     zai: {
       title: '挖 zaï 坑',
-      sub: '一拃深，两拃宽，坑里放一把粪',
+      sub: '一拃深，兩拃寬，坑裏放一把糞',
       cols: 6, rows: 4, need: 8, cls: 'dug', icon: '🕳',
-      hint: '点击格子挖坑。zaï 坑能<b>破除土壤结皮</b>、<b>集中雨水</b>，坑里的堆肥还会引来白蚁打洞，让水渗得更深。\n每挖一个坑消耗 3 升水（和泥、保墒）。',
-      tip: '真实数据：一公顷大约要挖 20,000 个坑——你在这里挖 8 个，只是开始。'
+      hint: '點擊格子挖坑。zaï 坑能<b>破除土壤結皮</b>、<b>集中雨水</b>，坑裏的堆肥還會引來白蟻打洞，讓水滲得更深。\n每挖一個坑消耗 3 升水（和泥、保墒）。',
+      tip: '真實數據：一公頃大約要挖 20,000 個坑——你在這裏挖 8 個，只是開始。'
     },
     stone: {
-      title: '摆石线',
-      sub: '沿等高线铺石，让水慢下来',
+      title: '擺石線',
+      sub: '沿等高線鋪石，讓水慢下來',
       cols: 6, rows: 4, need: 4, cls: 'stone', icon: '🪨',
-      hint: '点击<b>同一列</b>的格子连成一道石线（共需 4 道）。石线增加地表粗糙度，<b>减慢径流、促进入渗</b>，把泥沙与有机质留在田里。',
-      tip: '沿等高线摆放才有效——否则水会沿着石线冲走，反而冲出新的沟。'
+      hint: '點擊<b>同一列</b>的格子連成一道石線（共需 4 道）。石線增加地表粗糙度，<b>減慢徑流、促進入滲</b>，把泥沙與有機質留在田裏。',
+      tip: '沿等高線擺放才有效——否則水會沿着石線沖走，反而衝出新的溝。'
     },
     tree: {
-      title: '种白相思',
-      sub: 'Faidherbia albida · 反向物候的奇迹树',
+      title: '種白相思',
+      sub: 'Faidherbia albida · 反向物候的奇蹟樹',
       cols: 6, rows: 4, need: 5, cls: 'tree', icon: '🌳',
-      hint: '点击 5 个格子种下树苗。白相思<b>雨季落叶</b>（不遮作物）、<b>旱季长叶</b>（供饲料），还能固氮增肥。每棵消耗 12 升水。',
-      tip: '成活率取决于前两年的护理。现实中苗圃会先育苗 6–12 个月再移栽。'
+      hint: '點擊 5 個格子種下樹苗。白相思<b>雨季落葉</b>（不遮作物）、<b>旱季長葉</b>（供飼料），還能固氮增肥。每棵消耗 12 升水。',
+      tip: '成活率取決於前兩年的護理。現實中苗圃會先育苗 6–12 個月再移栽。'
     },
     water: {
       title: '打水',
       sub: '井深二十一米三',
       cols: 6, rows: 4, need: 6, cls: 'dug', icon: '💧',
-      hint: '井绳很长。点击格子把桶放下去再提上来——每一桶都要拉很久。',
-      tip: '旱季末，村里的井每天要排两小时的队。'
+      hint: '井繩很長。點擊格子把桶放下去再提上來——每一桶都要拉很久。',
+      tip: '旱季末，村裏的井每天要排兩小時的隊。'
     },
     graze: {
-      title: '练习轮牧',
-      sub: '点还有草的格子，别把同一块啃秃',
+      title: '練習輪牧',
+      sub: '點還有草的格子，別把同一塊啃禿',
       cols: 6, rows: 4, need: 8, cls: 'grazed', icon: '🌿',
-      hint: '每一格是一块草场。<b>点绿格</b>把草吃了（变成浅黄＝已吃）；<b>同一格点两次</b>就会啃秃（变成土黄，不计数）。\n轮牧的诀窍：吃一块、换一块，给草留口气重新长。',
-      tip: '现实中一块草场被啃的次数要有限度——超了就退化成裸地，雨一冲土也走。'
+      hint: '每一格是一塊草場。<b>點綠格</b>把草吃了（變成淺黃＝已吃）；<b>同一格點兩次</b>就會啃禿（變成土黃，不計數）。\n輪牧的訣竅：吃一塊、換一塊，給草留口氣重新長。',
+      tip: '現實中一塊草場被啃的次數要有限度——超了就退化成裸地，雨一衝土也走。'
     }
   };
 
@@ -564,30 +564,30 @@
       };
       grid.appendChild(c);
     }
-    // 加"放弃"按钮
+    // 加"放棄"按鈕
     const row = document.createElement('div');
     row.className = 'ov-btn-row';
     const b = document.createElement('button');
     b.className = 'ov-btn ghost';
-    b.textContent = '先离开（进度保留）';
+    b.textContent = '先離開（進度保留）';
     b.onclick = () => { this.closeOverlay(); onDone(count, true); };
     row.appendChild(b);
     $('ov-panel').appendChild(row);
   };
 
-  /* 轮牧小游戏：点绿格吃草，同一格点两次会啃秃（不计数），教会"给草留口气" */
+  /* 輪牧小遊戲：點綠格吃草，同一格點兩次會啃禿（不計數），教會"給草留口氣" */
   UI._grazeGame = function (need, onDone) {
     let fresh = 0, over = 0;
     const total = 6 * 4;
-    let html = '<h1>练习轮牧</h1><div class="sub">点还有草的格子，别把同一块啃秃</div>' +
+    let html = '<h1>練習輪牧</h1><div class="sub">點還有草的格子，別把同一塊啃禿</div>' +
       '<div class="mg-bar"><i id="mg-bar"></i></div>' +
       '<div class="mg-grid" id="mg-grid"></div>' +
-      '<div class="mg-hint">每一格是一块草场。<b>点绿格</b>把草吃了；<b>同一格点两次</b>会啃秃（土黄，不计数）。吃一块换一块，给草留口气。</div>' +
-      '<div class="mg-hint" style="margin-top:8px;opacity:.6">💡 现实里一块草场被啃的次数要有限度——超了就退化成裸地。</div>';
+      '<div class="mg-hint">每一格是一塊草場。<b>點綠格</b>把草吃了；<b>同一格點兩次</b>會啃禿（土黃，不計數）。吃一塊換一塊，給草留口氣。</div>' +
+      '<div class="mg-hint" style="margin-top:8px;opacity:.6">💡 現實裏一塊草場被啃的次數要有限度——超了就退化成裸地。</div>';
     this.overlay(html, []);
     const grid = $('mg-grid');
     const state = new Array(total).fill('grass');
-    // 预先把 5 块随机设为已秃（展示"超载"现状）
+    // 預先把 5 塊隨機設為已禿（展示"超載"現狀）
     const idxs = [];
     for (let i = 0; i < total; i++) idxs.push(i);
     for (let i = idxs.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [idxs[i], idxs[j]] = [idxs[j], idxs[i]]; }
@@ -600,19 +600,19 @@
       else { c.textContent = '🌿'; }
       c.onclick = () => {
         if (c.classList.contains('grazed') || c.classList.contains('over')) return;
-        if (state[i] === 'bare') { SFX.bad(); UI.toast('这块已经秃了，别再啃', 'bad'); return; }
+        if (state[i] === 'bare') { SFX.bad(); UI.toast('這塊已經禿了，別再啃', 'bad'); return; }
         if (!c.classList.contains('grazed')) {
           c.classList.add('grazed'); c.textContent = '🌾'; fresh++;
           $('mg-bar').style.width = Math.min(100, (fresh / need) * 100) + '%';
           SFX.plant();
         }
-        // 第二次点同一格：啃秃
+        // 第二次點同一格：啃禿
         c.onclick = () => {
           if (c.classList.contains('over')) return;
           c.classList.remove('grazed'); c.classList.add('over'); c.textContent = '🟫';
           fresh = Math.max(0, fresh - 1); over++;
           $('mg-bar').style.width = Math.min(100, (fresh / need) * 100) + '%';
-          SFX.bad(); UI.toast('啃秃了！轮牧就是要给草留口气', 'bad');
+          SFX.bad(); UI.toast('啃禿了！輪牧就是要給草留口氣', 'bad');
           updateDone();
         };
         updateDone();
@@ -633,40 +633,40 @@
     row.className = 'ov-btn-row';
     const b = document.createElement('button');
     b.className = 'ov-btn ghost';
-    b.textContent = '先离开（进度保留）';
+    b.textContent = '先離開（進度保留）';
     b.onclick = () => { UI.closeOverlay(); onDone(fresh, true); };
     row.appendChild(b);
     $('ov-panel').appendChild(row);
   };
 
-  /* ---------------- 结局 ---------------- */
+  /* ---------------- 結局 ---------------- */
   UI.ending = function (ending, stats, onRestart) {
     let html = '<div class="sub">' + ending.sub + '</div><h1>' + ending.title + '</h1>' +
       '<div class="lead" style="margin-top:14px">' + ending.text.replace(/\n/g, '<br>') + '</div>' +
       '<h2>地理分析</h2><p>' + ending.analysis + '</p>' +
-      '<h2>本作涉及的 DSE 考点</h2><ul>' + ending.dse.map(d => '<li>' + d + '</li>').join('') + '</ul>' +
-      '<h2>你的成绩</h2>' +
-      '<div class="kv"><span>答题正确率</span><b>' + stats.correct + ' / ' + stats.total + '（' + stats.rate + '%）</b></div>' +
-      '<div class="kv"><span>知识点收集</span><b>' + stats.notes + ' / ' + stats.notesTotal + '</b></div>' +
+      '<h2>本作涉及的 DSE 考點</h2><ul>' + ending.dse.map(d => '<li>' + d + '</li>').join('') + '</ul>' +
+      '<h2>你的成績</h2>' +
+      '<div class="kv"><span>答題正確率</span><b>' + stats.correct + ' / ' + stats.total + '（' + stats.rate + '%）</b></div>' +
+      '<div class="kv"><span>知識點收集</span><b>' + stats.notes + ' / ' + stats.notesTotal + '</b></div>' +
       '<div class="kv"><span>土壤肥力（自家田）</span><b>' + Math.round(stats.fertility) + ' / 100</b></div>' +
-      '<div class="kv"><span>可持续发展指数</span><b>' + Math.round(stats.sustain) + ' / 100</b></div>' +
-      '<div class="kv"><span>存粮 / 现金</span><b>' + Math.round(stats.food) + ' kg · ' + Math.round(stats.cash).toLocaleString('en-US') + ' F</b></div>' +
-      '<h2>课程对照</h2><div>' +
-      ['旱地环境与荒漠化', '水土保持技术', '土壤侵蚀过程', '农业与粮食安全', '人口与土地压力', '牧农关系与权属', '迁移与生计多元化', '气候变化与可持续发展']
+      '<div class="kv"><span>可持續發展指數</span><b>' + Math.round(stats.sustain) + ' / 100</b></div>' +
+      '<div class="kv"><span>存糧 / 現金</span><b>' + Math.round(stats.food) + ' kg · ' + Math.round(stats.cash).toLocaleString('en-US') + ' F</b></div>' +
+      '<h2>課程對照</h2><div>' +
+      ['旱地環境與荒漠化', '水土保持技術', '土壤侵蝕過程', '農業與糧食安全', '人口與土地壓力', '牧農關係與權屬', '遷移與生計多元化', '氣候變化與可持續發展']
         .map(t => '<span class="badge">' + t + '</span>').join('') + '</div>';
     this.overlay(html, [
-      { label: '再玩一次（重新开始）', onClick: () => { this.closeOverlay(); onRestart(); } },
-      { label: '查看地理笔记', ghost: true, onClick: () => this.notes() }
+      { label: '再玩一次（重新開始）', onClick: () => { this.closeOverlay(); onRestart(); } },
+      { label: '查看地理筆記', ghost: true, onClick: () => this.notes() }
     ]);
   };
 
-  /* ---------------- 小地图 ---------------- */
+  /* ---------------- 小地圖 ---------------- */
   UI._renderMinimapBase = function () {
     const cv = document.createElement('canvas');
     cv.width = 200; cv.height = 200;
     const c = cv.getContext('2d');
     const toMM = (x, z) => [(x + 230) / 460 * 200, (z + 230) / 460 * 200];
-    // 底色（按干旱度）
+    // 底色（按乾旱度）
     for (let i = 0; i < 200; i += 4) {
       for (let j = 0; j < 200; j += 4) {
         const x = (i / 200) * 460 - 230, z = (j / 200) * 460 - 230;
@@ -686,7 +686,7 @@
     // 道路
     c.strokeStyle = 'rgba(230,200,150,0.55)';
     c.lineWidth = 1.4;
-    // 简易：连接站点
+    // 簡易：連接站點
     const roads = [
       ['village', 'market'], ['village', 'farm'], ['village', 'well'], ['farm', 'demo'],
       ['demo', 'mare'], ['mare', 'camp'], ['village', 'nursery'], ['nursery', 'dunes'], ['market', 'station']
@@ -698,7 +698,7 @@
       const [ax, az] = toMM(A.x, A.z), [bx, bz] = toMM(B.x, B.z);
       c.beginPath(); c.moveTo(ax, az); c.lineTo(bx, bz); c.stroke();
     });
-    // 站点
+    // 站點
     c.font = '7px sans-serif'; c.textAlign = 'center';
     S.SITES.forEach(s => {
       const [x, z] = toMM(s.x, s.z);
@@ -718,7 +718,7 @@
     c.clearRect(0, 0, 200, 200);
     c.drawImage(this._mmBase, 0, 0);
     const toMM = (x, z) => [(x + 230) / 460 * 200, (z + 230) / 460 * 200];
-    // 当前目标
+    // 當前目標
     (targets || []).forEach(t => {
       const [x, z] = toMM(t.x, t.z);
       c.strokeStyle = '#ffd477';
@@ -741,7 +741,7 @@
     c.moveTo(0, -5); c.lineTo(3.4, 4); c.lineTo(0, 2); c.lineTo(-3.4, 4);
     c.closePath(); c.fill();
     c.restore();
-    // 边框刻度
+    // 邊框刻度
     c.strokeStyle = 'rgba(255,255,255,0.18)';
     c.lineWidth = 1;
     c.strokeRect(0.5, 0.5, 199, 199);
@@ -750,31 +750,31 @@
     c.fillText('北 ▲', 100, 12);
   };
 
-  /* ---------------- 标题画面 ---------------- */
+  /* ---------------- 標題畫面 ---------------- */
   UI.title = function (onStart, onSkipStory) {
     this._titleArgs = { onStart, onSkipStory };
     const html =
       '<div class="sub">DSE GEOGRAPHY · OPEN WORLD ADVENTURE</div>' +
-      '<h1>萨赫勒之歌</h1>' +
-      '<p style="margin-top:10px">Song of the Sahel —— 一个农夫、一公顷裂开的红土，和一整片正在改变的大陆。</p>' +
+      '<h1>薩赫勒之歌</h1>' +
+      '<p style="margin-top:10px">Song of the Sahel —— 一個農夫、一公頃裂開的紅土，和一整片正在改變的大陸。</p>' +
       '<div class="grid2" style="margin-top:20px">' +
-      '<div class="card"><div class="t">你将扮演</div><div class="d">Amadou，26 岁，萨赫勒地区科多戈村的农民。父亲十一年前去了南方城市；祖父留下一公顷越来越硬的地。旱季比往年长了两个月，粮仓只剩两袋小米。</div></div>' +
-      '<div class="card"><div class="t">你将面对</div><div class="d">荒漠化的诊断、zaï 坑与石线、井水的深度、牧民与农人的边界、集市的价格、车站的车票——以及最后那个问题：<b>留下，还是走？</b></div></div>' +
+      '<div class="card"><div class="t">你將扮演</div><div class="d">Amadou，26 歲，薩赫勒地區科多戈村的農民。父親十一年前去了南方城市；祖父留下一公頃越來越硬的地。旱季比往年長了兩個月，糧倉只剩兩袋小米。</div></div>' +
+      '<div class="card"><div class="t">你將面對</div><div class="d">荒漠化的診斷、zaï 坑與石線、井水的深度、牧民與農人的邊界、集市的價格、車站的車票——以及最後那個問題：<b>留下，還是走？</b></div></div>' +
       '</div>' +
-      '<h2>对应 DSE 地理科课程</h2>' +
-      '<div>' + ['旱地环境与荒漠化', '水土保持与土地修复', '土壤侵蚀过程', '农业与粮食安全', '人口与土地压力', '牧农关系与土地权属', '迁移与生计多元化', '气候变化与可持续发展'].map(t => '<span class="badge">' + t + '</span>').join('') + '</div>' +
+      '<h2>對應 DSE 地理科課程</h2>' +
+      '<div>' + ['旱地環境與荒漠化', '水土保持與土地修復', '土壤侵蝕過程', '農業與糧食安全', '人口與土地壓力', '牧農關係與土地權屬', '遷移與生計多元化', '氣候變化與可持續發展'].map(t => '<span class="badge">' + t + '</span>').join('') + '</div>' +
       '<h2>玩法</h2>' +
       '<ul>' +
-      '<li>在<b>开放世界</b>里行走：村庄、农田、旱谷、水塘、牧民营地、苗圃、沙丘、集市、车站</li>' +
-      '<li>与村民交谈推进剧情，每个关键节点都有<b>DSE 风格的选择题</b>（答错也有详细解析）</li>' +
-      '<li>亲手<b>挖 zaï 坑、摆石线、种树</b>——土地肥力会真的改变</li>' +
-      '<li>季节会推进：旱季与雨季交替，哈马丹风随时可能到来</li>' +
-      '<li>三种结局，取决于你的选择与<b>可持续发展指数</b></li>' +
+      '<li>在<b>開放世界</b>裏行走：村莊、農田、旱谷、水塘、牧民營地、苗圃、沙丘、集市、車站</li>' +
+      '<li>與村民交談推進劇情，每個關鍵節點都有<b>DSE 風格的選擇題</b>（答錯也有詳細解析）</li>' +
+      '<li>親手<b>挖 zaï 坑、擺石線、種樹</b>——土地肥力會真的改變</li>' +
+      '<li>季節會推進：旱季與雨季交替，哈馬丹風隨時可能到來</li>' +
+      '<li>三種結局，取決於你的選擇與<b>可持續發展指數</b></li>' +
       '</ul>' +
-      '<p style="margin-top:14px;opacity:.7;font-size:13px">建议先按 <b>H</b> 查看操作说明。全程约 25–35 分钟。</p>';
+      '<p style="margin-top:14px;opacity:.7;font-size:13px">建議先按 <b>H</b> 查看操作説明。全程約 25–35 分鐘。</p>';
     this.overlay(html, [
-      { label: '开始故事 ▸', onClick: () => { this.closeOverlay(); onStart(); } },
-      { label: '操作说明', ghost: true, onClick: () => this.help(true) }
+      { label: '開始故事 ▸', onClick: () => { this.closeOverlay(); onStart(); } },
+      { label: '操作説明', ghost: true, onClick: () => this.help(true) }
     ]);
   };
 

@@ -716,16 +716,65 @@
     }
     return animal;
   }
+
+  // 模型加载失败时仍保留可见牲畜，避免某一份 GLB 失败让整类动物消失。
+  function makeAnimalFallback(path) {
+    const key = path.split('/').pop().replace(/\\.glb$/i, '');
+    if (key === 'cow' || key === 'cow_quaternius' || key === 'cow_madtroll' || key === 'bull') {
+      return makeCowFallback(key === 'bull');
+    }
+    const cfg = {
+      goat: { color: 0xb98a61, dark: 0x5a3825, body: [0.38, 0.45, 0.72], head: 0.22, leg: 0.48 },
+      sheep: { color: 0xd7d0bd, dark: 0x6e6252, body: [0.48, 0.52, 0.78], head: 0.2, leg: 0.42 },
+      camel: { color: 0xb9874e, dark: 0x69462c, body: [0.62, 0.68, 1.18], head: 0.25, leg: 0.9 },
+      chicken: { color: 0xc66a36, dark: 0x7d2e22, body: [0.22, 0.25, 0.34], head: 0.12, leg: 0.24 }
+    }[key] || { color: 0xa8845e, dark: 0x5a3825, body: [0.42, 0.48, 0.72], head: 0.2, leg: 0.5 };
+    const animal = new THREE.Group();
+    const bodyMat = new THREE.MeshLambertMaterial({ color: cfg.color });
+    const darkMat = new THREE.MeshLambertMaterial({ color: cfg.dark });
+    const body = new THREE.Mesh(new THREE.SphereGeometry(0.5, 10, 7), bodyMat);
+    body.scale.set(cfg.body[0] / 0.5, cfg.body[1] / 0.5, cfg.body[2] / 0.5);
+    body.position.y = cfg.leg + cfg.body[1]; animal.add(body);
+    const head = new THREE.Mesh(new THREE.SphereGeometry(cfg.head, 8, 6), bodyMat);
+    head.position.set(0, cfg.leg + cfg.body[1] * 1.35, cfg.body[2] + cfg.head * 0.65); animal.add(head);
+    for (const side of [-1, 1]) {
+      const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.07, cfg.leg, 6), darkMat);
+      leg.position.set(side * cfg.body[0] * 0.62, cfg.leg * 0.5, 0); animal.add(leg);
+    }
+    if (key === 'camel') {
+      const hump = new THREE.Mesh(new THREE.SphereGeometry(0.28, 8, 6), bodyMat);
+      hump.scale.set(1.1, 1.5, 0.9); hump.position.set(0, cfg.leg + cfg.body[1] * 1.75, -0.18); animal.add(hump);
+    } else if (key === 'chicken') {
+      const beak = new THREE.Mesh(new THREE.ConeGeometry(0.055, 0.16, 5), new THREE.MeshLambertMaterial({ color: 0xe1a12b }));
+      beak.rotation.x = Math.PI / 2; beak.position.set(0, cfg.leg + cfg.body[1] * 1.55, cfg.body[2] + cfg.head * 1.35); animal.add(beak);
+    } else {
+      for (const side of [-1, 1]) {
+        const ear = new THREE.Mesh(new THREE.ConeGeometry(0.045, 0.16, 5), darkMat);
+        ear.position.set(side * cfg.head * 0.75, cfg.leg + cfg.body[1] * 1.65, cfg.body[2]); ear.rotation.z = side * -0.35; animal.add(ear);
+      }
+    }
+    return animal;
+  }
+
+  function syncAnimalMatrices(node) {
+    node.updateMatrixWorld(true);
+    node.traverse(o => { if (o.isSkinnedMesh && o.skeleton) o.skeleton.update(); });
+    node.updateMatrixWorld(true);
+  }
+
   function placeAnimals(scene) {
     const g = new THREE.Group();
     World._animalMixers = [];
     const defs = [
-      ['vendor/models/cow.glb',           4, 108, -58, 18],
+      ['vendor/models/cow.glb',           2,  28,  76,  9],
+      ['vendor/models/cow.glb',           2, 108, -58, 18],
       ['vendor/models/cow_quaternius.glb', 3, 108, -58, 25],
       ['vendor/models/cow_madtroll.glb',   2, 108, -58, 29],
       ['vendor/models/bull.glb',           1, 108, -58, 13],
-      ['vendor/models/goat.glb',           4, 120, -74, 12],
-      ['vendor/models/sheep.glb',          5, 126, -110, 16],
+      ['vendor/models/goat.glb',           2,  16,  82,  8],
+      ['vendor/models/goat.glb',           2, 120, -74, 12],
+      ['vendor/models/sheep.glb',          2,  -8,  88,  8],
+      ['vendor/models/sheep.glb',          3, 126, -110, 16],
       ['vendor/models/camel.glb',          2, 132, -124, 14],
       ['vendor/models/chicken.glb',         7, 100, -50, 10]
     ];
@@ -733,29 +782,36 @@
       const targetH = ANIMAL_TARGET_H[path] || 1.5;
       for (let i = 0; i < count; i++) {
         const inst = S.Models.instance(path);
-        const isCow = path.indexOf('/cow') >= 0 || path.indexOf('/bull') >= 0;
-        if (!inst && !isCow) continue;
-        const m = inst ? inst.scene : makeCowFallback(path.indexOf('bull') >= 0);
-        // 按包圍盒歸一化到目標身高，並將腳底精確貼合地形。
-        const box = new THREE.Box3().setFromObject(m);
+        const m = inst ? inst.scene : makeAnimalFallback(path);
+        // 先同步骨骼，再按真实包围盒归一化，避免模型被算成零高或错误贴地。
+        syncAnimalMatrices(m);
+        let box = new THREE.Box3().setFromObject(m);
         const size = new THREE.Vector3(); box.getSize(size);
-        const s = targetH / (size.y || targetH);
+        const s = Number.isFinite(size.y) && size.y > 0.0001 ? targetH / size.y : 1;
         m.scale.setScalar(s);
-        const groundOffset = -box.min.y * s;
-        m.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; o.frustumCulled = true; } });
+        m.rotation.y = Math.random() * 6.283;
+        syncAnimalMatrices(m);
+        box = new THREE.Box3().setFromObject(m);
+        const groundOffset = -box.min.y;
+        m.traverse(o => {
+          if (o.isMesh) {
+            o.castShadow = true;
+            o.receiveShadow = true;
+            // 動物數量很少；關閉骨骼網格裁剪，避免動畫包圍球過期導致整隻消失。
+            o.frustumCulled = false;
+          }
+        });
         const ang = Math.random() * 6.283, rr = rad * (0.25 + Math.random() * 0.75);
         const x = cx + Math.cos(ang) * rr, z = cz + Math.sin(ang) * rr;
         const terrainY = World.groundY(x, z);
         m.position.set(x, terrainY + groundOffset, z);
-        m.rotation.y = Math.random() * 6.283;
         m.userData.phase = Math.random() * 6.283;
-        m.userData.baseYaw = m.rotation.y;       // 基準朝向，僅做輕微搖擺，不再原地亂轉
+        m.userData.baseYaw = m.rotation.y;
         m.userData.bob = Math.random() * 6.283;
         m.userData.groundOffset = groundOffset;
         m.userData.groundY = terrainY;
         m.userData.modelPath = path;
         if (inst && inst.animations && inst.animations.length) {
-          // 只播獨立待機片段，避免 Idle_HitReact 等受擊動作被誤選。
           const idle = inst.animations.find(clip => /(?:^|[| .-])idle(?:$|[| .-])/i.test(clip.name));
           if (idle) {
             const mixer = new THREE.AnimationMixer(m);

@@ -47,6 +47,7 @@
     _waterMesh: null,
     _canopyMats: [],
     _grassMat: null,
+    _detailGrassMeshes: [],
     _skyTop: new THREE.Color(), _skyBot: new THREE.Color()
   };
 
@@ -170,6 +171,10 @@
     }
     if (this.sun && this.sun.shadow.map) { this.sun.shadow.map.dispose(); this.sun.shadow.map = null; }
     r.shadowMap.needsUpdate = true;
+    const grassLimit = q === 'low' ? 220 : (q === 'medium' ? 420 : 720);
+    (this._detailGrassMeshes || []).forEach(mesh => {
+      mesh.count = Math.min(grassLimit, mesh.userData.placedCount || 0);
+    });
   };
 
   /* ============ 地形 ============ */
@@ -292,6 +297,11 @@
       gltfTree.scene.traverse(o => { if (/^NormalTree_\d+$/.test(o.name || '')) treeNodes.push(o); });
       treeNodes.sort((a, b) => a.name.localeCompare(b.name));
     }
+    // 增加薩赫勒樹種變體；模型共享 GLB 幾何/材質，場景中僅克隆節點。
+    ['vendor/models/acacia.glb', 'vendor/models/savanna_tree.glb'].forEach(path => {
+      const variant = S.Models.get(path);
+      if (variant) treeNodes.push(variant.scene);
+    });
 
     const placeOneTree = (srcNode, x, z, targetH) => {
       let node;
@@ -369,6 +379,50 @@
     grass.instanceMatrix.needsUpdate = true;
     if (grass.instanceColor) grass.instanceColor.needsUpdate = true;
     scene.add(grass);
+
+    // 額外的真實草叢：保持批次 InstancedMesh，不為每株建立獨立場景物件。
+    const grassAsset = S.Models.get('vendor/models/tall_grass.glb');
+    if (grassAsset) {
+      const quality = S.Settings && S.Settings.data ? S.Settings.data.quality : 'high';
+      const qualityLimit = quality === 'low' ? 220 : (quality === 'medium' ? 420 : 720);
+      const capacity = 720;
+      World._detailGrassMeshes = [];
+      const detailRng = makeRng(20251023);
+      const sources = [];
+      grassAsset.scene.updateMatrixWorld(true);
+      grassAsset.scene.traverse(o => { if (o.isMesh && o.geometry && o.material) sources.push(o); });
+      sources.forEach(src => {
+        const patch = new THREE.InstancedMesh(src.geometry, src.material, capacity);
+        patch.castShadow = false;
+        patch.receiveShadow = false;
+        const base = src.matrixWorld.clone();
+        let placed = 0, attempts = 0;
+        while (placed < capacity && attempts < capacity * 16) {
+          attempts++;
+          const x = (detailRng() - 0.5) * WORLD.size * 0.92;
+          const z = (detailRng() - 0.5) * WORLD.size * 0.92;
+          const aridity = aridityAt(x, z);
+          const density = clamp(1.05 - aridity * 1.35, 0, 1);
+          if (detailRng() > density * 0.72) continue;
+          const scale = 0.3 + detailRng() * 0.3;
+          P.set(x, heightAt(x, z), z);
+          Q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), detailRng() * 6.283);
+          SC.set(scale, scale, scale);
+          M.compose(P, Q, SC).multiply(base);
+          patch.setMatrixAt(placed, M);
+          col.setRGB(1, 1, 1).lerp(cDry, clamp(aridity * 0.55, 0, 0.5));
+          patch.setColorAt(placed, col);
+          placed++;
+        }
+        patch.userData.placedCount = placed;
+        patch.count = Math.min(qualityLimit, placed);
+        patch.instanceMatrix.needsUpdate = true;
+        if (patch.instanceColor) patch.instanceColor.needsUpdate = true;
+        patch.computeBoundingSphere();
+        World._detailGrassMeshes.push(patch);
+        scene.add(patch);
+      });
+    }
 
     // 石頭
     const rockGeo = new THREE.IcosahedronGeometry(0.5, 0);
@@ -475,7 +529,10 @@
     /* --- 真實 GLB 建築：house/granary/stall/nursery/mosque/school/tent 用真實模型；
            缺失該 GLB 時走程序化兜底，避免建築消失或錯位 --- */
     const M = {
-      house:    S.Models.get('vendor/models/hut.glb'),
+      house: [
+        S.Models.get('vendor/models/hut.glb'),
+        S.Models.get('vendor/models/hut_variant_b.glb')
+      ].filter(Boolean),
       granary:  S.Models.get('vendor/models/hut.glb'),
       nursery:  S.Models.get('vendor/models/hut.glb'),
       stall:    S.Models.get('vendor/models/stall.glb') || S.Models.get('vendor/models/hut.glb'),
@@ -507,7 +564,10 @@
     };
 
     houseSpecs.forEach(h => {
-      const model = M[h.kind];
+      const candidates = h.kind === 'house' ? M.house : [M[h.kind]];
+      const model = candidates && candidates.length
+        ? candidates[Math.floor(rng() * candidates.length)]
+        : null;
       if (model) {
         const tw = (h.kind === 'stall' || h.kind === 'fence' || h.kind === 'bed') ? 0 : Math.max(h.w, h.d) * 0.92;
         const th = (h.kind === 'stall') ? 2.1 : h.h;
@@ -628,39 +688,81 @@
    * 所以統一用包圍盒把每隻動物歸一化到真實身高，避免巨大/過小。
    * 目標身高（米）由各模型真實比例給定。 */
   const ANIMAL_TARGET_H = {
-    'vendor/models/cow.glb': 1.5, 'vendor/models/bull.glb': 1.7,
+    'vendor/models/cow.glb': 1.5, 'vendor/models/cow_quaternius.glb': 1.5,
+    'vendor/models/cow_madtroll.glb': 1.5, 'vendor/models/bull.glb': 1.7,
     'vendor/models/goat.glb': 0.7, 'vendor/models/sheep.glb': 0.9,
     'vendor/models/camel.glb': 2.2, 'vendor/models/chicken.glb': 0.42
   };
+  function makeCowFallback(isBull) {
+    const animal = new THREE.Group();
+    const coat = new THREE.MeshLambertMaterial({ color: isBull ? 0x76513b : 0xc7b28f });
+    const dark = new THREE.MeshLambertMaterial({ color: 0x46352b });
+    const light = new THREE.MeshLambertMaterial({ color: 0xe1d5bb });
+    const body = new THREE.Mesh(new THREE.SphereGeometry(0.55, 12, 8), coat);
+    body.scale.set(1.0, 0.72, 1.55); body.position.y = 0.78; animal.add(body);
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.29, 10, 8), coat);
+    head.position.set(0, 1.04, 1.32); animal.add(head);
+    const muzzle = new THREE.Mesh(new THREE.SphereGeometry(0.19, 8, 6), light);
+    muzzle.scale.set(1.0, 0.72, 0.85); muzzle.position.set(0, 0.94, 1.57); animal.add(muzzle);
+    for (const side of [-1, 1]) {
+      const horn = new THREE.Mesh(new THREE.ConeGeometry(0.065, 0.28, 6), light);
+      horn.position.set(side * 0.2, 1.35, 1.27); horn.rotation.z = side * -0.25; animal.add(horn);
+      const ear = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.08, 0.12), dark);
+      ear.position.set(side * 0.32, 1.12, 1.18); ear.rotation.y = side * 0.2; animal.add(ear);
+      for (const z of [-0.82, 0.82]) {
+        const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.095, 0.53, 6), coat);
+        leg.position.set(side * 0.32, 0.28, z); animal.add(leg);
+      }
+    }
+    return animal;
+  }
   function placeAnimals(scene) {
     const g = new THREE.Group();
+    World._animalMixers = [];
     const defs = [
-      ['vendor/models/cow.glb',    4, 108,  -58, 18],
-      ['vendor/models/bull.glb',   1, 108,  -58, 12],
-      ['vendor/models/goat.glb',   4, 120,  -74, 12],
-      ['vendor/models/sheep.glb',  5, 126, -110, 16],
-      ['vendor/models/camel.glb',  2, 132, -124, 14],
-      ['vendor/models/chicken.glb', 7, 100,  -50, 10]
+      ['vendor/models/cow.glb',           4, 108, -58, 18],
+      ['vendor/models/cow_quaternius.glb', 3, 108, -58, 25],
+      ['vendor/models/cow_madtroll.glb',   2, 108, -58, 29],
+      ['vendor/models/bull.glb',           1, 108, -58, 13],
+      ['vendor/models/goat.glb',           4, 120, -74, 12],
+      ['vendor/models/sheep.glb',          5, 126, -110, 16],
+      ['vendor/models/camel.glb',          2, 132, -124, 14],
+      ['vendor/models/chicken.glb',         7, 100, -50, 10]
     ];
     defs.forEach(([path, count, cx, cz, rad]) => {
       const targetH = ANIMAL_TARGET_H[path] || 1.5;
       for (let i = 0; i < count; i++) {
         const inst = S.Models.instance(path);
-        if (!inst) continue;
-        const m = inst.scene;
-        // 按包圍盒歸一化到目標身高
+        const isCow = path.indexOf('/cow') >= 0 || path.indexOf('/bull') >= 0;
+        if (!inst && !isCow) continue;
+        const m = inst ? inst.scene : makeCowFallback(path.indexOf('bull') >= 0);
+        // 按包圍盒歸一化到目標身高，並將腳底精確貼合地形。
         const box = new THREE.Box3().setFromObject(m);
         const size = new THREE.Vector3(); box.getSize(size);
         const s = targetH / (size.y || targetH);
         m.scale.setScalar(s);
+        const groundOffset = -box.min.y * s;
         m.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; o.frustumCulled = true; } });
         const ang = Math.random() * 6.283, rr = rad * (0.25 + Math.random() * 0.75);
         const x = cx + Math.cos(ang) * rr, z = cz + Math.sin(ang) * rr;
-        m.position.set(x, heightAt(x, z), z);
+        const terrainY = World.groundY(x, z);
+        m.position.set(x, terrainY + groundOffset, z);
         m.rotation.y = Math.random() * 6.283;
         m.userData.phase = Math.random() * 6.283;
         m.userData.baseYaw = m.rotation.y;       // 基準朝向，僅做輕微搖擺，不再原地亂轉
         m.userData.bob = Math.random() * 6.283;
+        m.userData.groundOffset = groundOffset;
+        m.userData.groundY = terrainY;
+        m.userData.modelPath = path;
+        if (inst && inst.animations && inst.animations.length) {
+          // 只播獨立待機片段，避免 Idle_HitReact 等受擊動作被誤選。
+          const idle = inst.animations.find(clip => /(?:^|[| .-])idle(?:$|[| .-])/i.test(clip.name));
+          if (idle) {
+            const mixer = new THREE.AnimationMixer(m);
+            mixer.clipAction(idle).play();
+            World._animalMixers.push(mixer);
+          }
+        }
         g.add(m);
       }
     });
@@ -867,12 +969,13 @@
       }
     }
 
-    // 牲畜：原地輕微搖擺 / 呼吸，不再持續累積旋轉（避免「原地亂轉」）
+    // 牛模型若帶有 idle 動畫，使用獨立 Mixer 播放；其他牲畜保留輕微呼吸搖擺。
+    if (this._animalMixers) this._animalMixers.forEach(mixer => mixer.update(dt));
     if (this._animals) {
       for (const c of this._animals.children) {
         c.userData.phase += dt * 0.6;
         c.userData.bob += dt * 1.4;
-        c.position.y = heightAt(c.position.x, c.position.z) + Math.abs(Math.sin(c.userData.bob)) * 0.04;
+        c.position.y = (c.userData.groundY === undefined ? heightAt(c.position.x, c.position.z) : c.userData.groundY) + (c.userData.groundOffset || 0) + Math.abs(Math.sin(c.userData.bob)) * 0.04;
         c.rotation.y = c.userData.baseYaw + Math.sin(c.userData.phase) * 0.18;
       }
     }

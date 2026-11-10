@@ -472,7 +472,10 @@
       '<p>你是 Amadou，薩赫勒地區科多戈村的農民。旱季比往年更長，糧倉只剩兩袋小米，父親十一年前去了南方。' +
       '你要在<b>修復土地</b>、<b>維持家計</b>與<b>是否離開</b>之間做決定。</p>' +
       '<p style="margin-top:10px">所有題目按<b>香港中學文憑試（DSE）地理科</b>的課程框架設計：' +
-      '旱地環境、荒漠化、農業與糧食安全、人口遷移、可持續發展。答錯也會記下解析——這是學習的一部分。</p>';
+      '旱地環境、荒漠化、農業與糧食安全、人口遷移、可持續發展。答錯也會記下解析——這是學習的一部分。</p>' +
+      '<h2>資產與授權</h2>' +
+      '<p>場景中的部分開放模型來自 <a href="https://poly.pizza/" target="_blank" rel="noopener">Poly Pizza</a>：Quaternius 的模型採 CC0；madtrollstudio 與 Poly by Google 的模型採 CC BY 3.0。' +
+      '完整作者、來源、授權及修改記錄請參閱本遊戲倉庫的 <code>vendor/models/ATTRIBUTION.json</code>。</p>';
     const btns = [
       { label: '音效：' + (SFX.on ? '開' : '關'), ghost: true, onClick: () => { SFX.on = !SFX.on; this.help(fromTitle); } },
       { label: fromTitle ? '返回標題' : '關閉', onClick: () => this.closeOverlay() }

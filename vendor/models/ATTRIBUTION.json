@@ -1,0 +1,79 @@
+{
+  "checkedOn": "2026-11-10",
+  "assets": [
+    {
+      "file": "cow_quaternius.glb",
+      "title": "Cow",
+      "creator": "Quaternius",
+      "source": "https://poly.pizza/m/5XSc2Fka3F",
+      "download": "https://static.poly.pizza/48c5f4af-07d6-4493-a261-0919967afe85.glb",
+      "license": "CC0 1.0 (Public Domain Dedication)",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "attribution": "Quaternius, Cow, Poly Pizza (CC0)",
+      "changes": "Downloaded as GLB; used as an additional cattle variation."
+    },
+    {
+      "file": "cow_madtroll.glb",
+      "title": "Cow",
+      "creator": "madtrollstudio",
+      "source": "https://poly.pizza/m/mwlpZgsWHq",
+      "download": "https://static.poly.pizza/77736c4f-4b91-455d-bce9-9f49758233f0.glb",
+      "license": "CC BY 3.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
+      "attribution": "Cow by madtrollstudio via Poly Pizza, licensed under CC BY 3.0.",
+      "changes": "Downloaded as GLB; used as an additional cattle variation."
+    },
+    {
+      "file": "acacia.glb",
+      "title": "Acacia",
+      "creator": "Poly by Google",
+      "source": "https://poly.pizza/m/0j86RMO4kQC",
+      "download": "https://static.poly.pizza/28d1b007-927a-4fbc-a3bf-1a38278dc73c.glb",
+      "license": "CC BY 3.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
+      "attribution": "Acacia by Poly by Google via Poly Pizza, licensed under CC BY 3.0.",
+      "changes": "Downloaded as GLB; reused as a tree variation."
+    },
+    {
+      "file": "savanna_tree.glb",
+      "title": "Tree from the savanna",
+      "creator": "hat_my_guy",
+      "source": "https://poly.pizza/m/uLxXsCfYb7",
+      "download": "https://static.poly.pizza/bae48a47-b895-4183-b1cc-ecdf621fa501.glb",
+      "license": "CC0 1.0 (Public Domain Dedication)",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "attribution": "hat_my_guy, Tree from the savanna, Poly Pizza (CC0)",
+      "changes": "Downloaded as GLB; reused as a tree variation."
+    },
+    {
+      "file": "tall_grass.glb",
+      "title": "Tall Grass",
+      "creator": "Quaternius",
+      "source": "https://poly.pizza/m/JSIYtscPmP",
+      "download": "https://static.poly.pizza/83f8e6d6-fa7e-4cd8-a0ef-8c51d0ff4e88.glb",
+      "license": "CC0 1.0 (Public Domain Dedication)",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "attribution": "Quaternius, Tall Grass, Poly Pizza (CC0)",
+      "changes": "Downloaded as GLB; instanced as supplementary ground cover."
+    },
+    {
+      "file": "hut_variant_b.glb",
+      "title": "Hut",
+      "creator": "Quaternius",
+      "source": "https://poly.pizza/m/I0IzdnH2iN",
+      "download": "https://static.poly.pizza/76843ec7-2056-43ed-853e-d32d0b8253c4.glb",
+      "license": "CC0 1.0 (Public Domain Dedication)",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "attribution": "Quaternius, Hut, Poly Pizza (CC0)",
+      "changes": "Downloaded as GLB; used as a village house variation."
+    }
+  ],
+  "retiredAssets": [
+    {
+      "file": "hut_variant_a.glb",
+      "status": "rejected-duplicate",
+      "duplicateOf": "hut.glb",
+      "reason": "SHA-256 identical to the existing hut.glb; removed from preload and house candidates."
+    }
+  ]
+}

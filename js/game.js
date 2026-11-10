@@ -74,7 +74,11 @@
       'vendor/models/woman.glb', 'vendor/models/adventurer.glb',
       'vendor/models/tree.glb', 'vendor/models/hut.glb',
       'vendor/models/mosque.glb', 'vendor/models/tent.glb', 'vendor/models/baobab.glb',
-      'vendor/models/school.glb', 'vendor/models/stall.glb', 'vendor/models/well.glb'
+      'vendor/models/school.glb', 'vendor/models/stall.glb', 'vendor/models/well.glb',
+      // 開放授權場景變體：薩赫勒樹、草叢、泥屋與不同外觀的牛。
+      'vendor/models/acacia.glb', 'vendor/models/savanna_tree.glb', 'vendor/models/tall_grass.glb',
+      'vendor/models/hut_variant_b.glb',
+      'vendor/models/cow_quaternius.glb', 'vendor/models/cow_madtroll.glb'
     ];
     S.Models.preloadAll(MODEL_LIST, (done, total) => {
       tip.textContent = '正在裝載牲畜、村民與場景模型… ' + done + '/' + total;

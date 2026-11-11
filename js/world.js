@@ -762,9 +762,62 @@
     node.updateMatrixWorld(true);
   }
 
+  function animalClip(animations, names) {
+    if (!animations || !animations.length) return null;
+    for (const name of names) {
+      // Idle 必须优先匹配完整片段，避免误播 Idle_HitReact 等受击动作。
+      if (name.toLowerCase() === 'idle') {
+        const exact = animations.find(c => /(?:^|[| .-])idle$/i.test(c.name.trim()));
+        if (exact) return exact;
+        continue;
+      }
+      const clip = animations.find(c => new RegExp('(?:^|[| ._-])' + name + '(?:$|[| ._-])', 'i').test(c.name));
+      if (clip) return clip;
+    }
+    return null;
+  }
+
+  function isCowPath(path) {
+    return /(?:^|\/)(?:cow|cow_quaternius|cow_madtroll|bull)\.glb$/i.test(path);
+  }
+
+  function setAnimalAction(actor, moving) {
+    if (!actor.mixer) return;
+    const next = moving ? (actor.walkAction || actor.idleAction) : actor.idleAction;
+    if (!next || actor.currentAction === next) return;
+    if (actor.currentAction) actor.currentAction.fadeOut(0.35);
+    next.reset().fadeIn(0.35).play();
+    actor.currentAction = next;
+  }
+
+  function chooseCowTarget(actor) {
+    const homeR = Math.max(3, actor.homeRadius * 0.82);
+    for (let attempt = 0; attempt < 8; attempt++) {
+      const angle = Math.random() * 6.283;
+      const radius = 1.5 + Math.random() * homeR;
+      const target = World.clampToWorld(
+        actor.homeX + Math.cos(angle) * radius,
+        actor.homeZ + Math.sin(angle) * radius
+      );
+      const safe = World.collide(target.x, target.z, actor.radius);
+      if (Math.hypot(safe.x - target.x, safe.z - target.z) < 0.5) {
+        actor.targetX = target.x;
+        actor.targetZ = target.z;
+        actor.wanderState = 'walk';
+        actor.wanderTimer = 2.5 + Math.random() * 5.0;
+        setAnimalAction(actor, true);
+        return;
+      }
+    }
+    actor.wanderState = 'rest';
+    actor.wanderTimer = 2.0 + Math.random() * 4.0;
+    setAnimalAction(actor, false);
+  }
+
   function placeAnimals(scene) {
     const g = new THREE.Group();
     World._animalMixers = [];
+    World._animalActors = [];
     const defs = [
       ['vendor/models/cow.glb',           2,  28,  76,  9],
       ['vendor/models/cow.glb',           2, 108, -58, 18],
@@ -811,14 +864,36 @@
         m.userData.groundOffset = groundOffset;
         m.userData.groundY = terrainY;
         m.userData.modelPath = path;
+        const canWander = isCowPath(path);
+        m.userData.species = canWander ? 'cow' : path.split('/').pop().replace(/\.glb$/i, '');
+        m.userData.canWander = canWander;
+
+        let mixer = null, idleAction = null, walkAction = null;
         if (inst && inst.animations && inst.animations.length) {
-          const idle = inst.animations.find(clip => /(?:^|[| .-])idle(?:$|[| .-])/i.test(clip.name));
-          if (idle) {
-            const mixer = new THREE.AnimationMixer(m);
-            mixer.clipAction(idle).play();
+          const idle = animalClip(inst.animations, ['idle']);
+          const walk = animalClip(inst.animations, ['walkslow', 'walk', 'run', 'gallop']);
+          if (idle || walk) {
+            mixer = new THREE.AnimationMixer(m);
+            idleAction = idle ? mixer.clipAction(idle) : null;
+            walkAction = walk ? mixer.clipAction(walk) : null;
+            if (idleAction) idleAction.play();
+            else if (walkAction) walkAction.play();
             World._animalMixers.push(mixer);
           }
         }
+        const actor = {
+          group: m, mixer, idleAction, walkAction,
+          currentAction: idleAction || walkAction,
+          homeX: cx, homeZ: cz, homeRadius: rad,
+          targetX: x, targetZ: z,
+          wanderState: canWander ? 'rest' : 'static',
+          wanderTimer: canWander ? 1.5 + Math.random() * 4.0 : Infinity,
+          wanderSpeed: 0.55 + Math.random() * 0.3,
+          radius: canWander ? 0.65 : 0,
+          modelPath: path
+        };
+        m.userData.animalActor = actor;
+        if (canWander) World._animalActors.push(actor);
         g.add(m);
       }
     });
@@ -1010,6 +1085,54 @@
     this.markers.slice().forEach(m => this.removeMarker(m));
   };
 
+  function updateCowActors(dt) {
+    const actors = World._animalActors || [];
+    for (const actor of actors) {
+      const c = actor.group;
+      actor.wanderTimer -= dt;
+      c.userData.phase += dt * (actor.wanderState === 'walk' ? 1.4 : 0.6);
+      c.userData.bob += dt * 1.4;
+
+      if (actor.wanderState === 'rest') {
+        if (actor.wanderTimer <= 0) chooseCowTarget(actor);
+      } else if (actor.wanderState === 'walk') {
+        const dx = actor.targetX - c.position.x;
+        const dz = actor.targetZ - c.position.z;
+        const distance = Math.hypot(dx, dz);
+        if (distance < 0.75 || actor.wanderTimer <= 0) {
+          actor.wanderState = 'rest';
+          actor.wanderTimer = 1.5 + Math.random() * 4.0;
+          setAnimalAction(actor, false);
+        } else {
+          const desiredYaw = Math.atan2(dx, dz);
+          let turn = desiredYaw - c.rotation.y;
+          while (turn > Math.PI) turn -= Math.PI * 2;
+          while (turn < -Math.PI) turn += Math.PI * 2;
+          c.rotation.y += clamp(turn, -dt * 1.8, dt * 1.8);
+          const step = Math.min(distance, actor.wanderSpeed * dt);
+          const nx = c.position.x + Math.sin(c.rotation.y) * step;
+          const nz = c.position.z + Math.cos(c.rotation.y) * step;
+          const safe = World.clampToWorld(nx, nz);
+          const resolved = World.collide(safe.x, safe.z, actor.radius);
+          if (Math.hypot(resolved.x - c.position.x, resolved.z - c.position.z) < 0.001) {
+            actor.wanderState = 'rest';
+            actor.wanderTimer = 0.8 + Math.random() * 1.6;
+            setAnimalAction(actor, false);
+          } else {
+            c.position.x = resolved.x;
+            c.position.z = resolved.z;
+          }
+        }
+      }
+
+      if (actor.wanderState !== 'static') {
+        c.userData.groundY = World.groundY(c.position.x, c.position.z);
+        c.position.y = c.userData.groundY + (c.userData.groundOffset || 0)
+          + Math.abs(Math.sin(c.userData.bob)) * (actor.wanderState === 'walk' ? 0.025 : 0.04);
+      }
+    }
+  }
+
   /* ============ 每幀更新 ============ */
   World.update = function (dt, playerPos) {
     this.time += dt;
@@ -1025,10 +1148,12 @@
       }
     }
 
-    // 牛模型若帶有 idle 動畫，使用獨立 Mixer 播放；其他牲畜保留輕微呼吸搖擺。
+    // 牛模型使用獨立 Mixer 播放 Idle/Walk；其他牲畜保留輕微呼吸搖擺。
     if (this._animalMixers) this._animalMixers.forEach(mixer => mixer.update(dt));
+    updateCowActors(dt);
     if (this._animals) {
       for (const c of this._animals.children) {
+        if (c.userData.canWander) continue;
         c.userData.phase += dt * 0.6;
         c.userData.bob += dt * 1.4;
         c.position.y = (c.userData.groundY === undefined ? heightAt(c.position.x, c.position.z) : c.userData.groundY) + (c.userData.groundOffset || 0) + Math.abs(Math.sin(c.userData.bob)) * 0.04;

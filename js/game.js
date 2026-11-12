@@ -117,6 +117,13 @@
     if (touchCapable) document.getElementById('touch-ui').classList.remove('hidden');
     this.actIndex = 0; this.stepIndex = 0;
     World.setSeason('dry');
+    // 進入世界時才啟動環境音樂：此刻已有點擊手勢，AudioContext 能正常發聲
+    if (UI.Ambient) {
+      UI.Ambient.syncSettings();
+      UI.Ambient.season = this.state.season;
+      UI.Ambient.start();
+    }
+    if (UI.syncMusicButton) UI.syncMusicButton();
     this.syncHUD();
     this.enterAct(0);
   };
@@ -695,6 +702,8 @@
         if (!UI.mode) this.toggleView();
       } else if (code === 'KeyG') {
         if (!UI.mode && this.started) this.toggleHerd();
+      } else if (code === 'KeyM') {
+        if (!UI.mode) UI.toggleMusic();
       } else if (code === 'Escape') {
         if (UI.mode === 'overlay') UI.closeOverlay();
         else if (UI.mode === 'dialogue') { UI.hideDialogue(); this._pendingNext = false; this._talkCompletesStep = false; this._talkGuard = null; }
@@ -720,15 +729,25 @@
       if (bh) bh.addEventListener('click', () => {
         if (this.started && !UI.mode) this.toggleHerd();
       });
+      // 觸屏專用吹哨鍵，與 HUD 的「🎵 吹哨」和 G 鍵走同一個入口
+      const bw = document.getElementById('btn-whistle');
+      if (bw) bw.addEventListener('click', () => {
+        if (this.started && !UI.mode) this.toggleHerd();
+      });
     };
 
   /* ================= 趕牛玩法 ================= */
   Game.toggleHerd = function () {
     const st = World.toggleHerd();
     UI.toast(st.active
-      ? '🐄 吹哨趕牛！附近的牛會跟着你，把牠們帶到牧民營地的畜欄。'
-      : '🐄 停止趕牛，牛羣恢復自由吃草。', 'good');
-    UI.SFX.talk();
+      ? '🎵 你吹了一聲口哨！附近的牛會跟着你，把牠們帶到牧民營地的畜欄。'
+      : '🎵 收哨，牛羣恢復自由吃草。', 'good');
+    UI.SFX.whistle(!st.active);
+    const bw = document.getElementById('btn-whistle');
+    if (bw) {
+      bw.classList.toggle('whistling', st.active);
+      bw.title = st.active ? '再吹一次哨，停止趕牛' : '吹哨趕牛';
+    }
     this.updateHerdHUD();
   };
 
@@ -767,7 +786,11 @@
       Player.update(dt, World.camera);
       NPCs.update(dt, Player.pos, !UI.mode);
       World.update(dt, Player.pos);
-      if (this.started) { this.updateWorld(dt); this.updateHerdHUD(); }
+      if (this.started) {
+        this.updateWorld(dt); this.updateHerdHUD();
+        // 季節變換時讓環境音樂跟着換（覆蓋任務、指令、事件等所有切換路徑）
+        if (UI.Ambient && UI.Ambient.season !== this.state.season) UI.Ambient.setSeason(this.state.season);
+      }
       if (this.started) {
         const targets = [];
         this.probes.forEach(p => { if (!p.done) targets.push(p); });

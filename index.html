@@ -36,7 +36,8 @@
     <button class="hud-btn" id="btn-journal" title="任務日誌 (Tab)">📜 日誌</button>
     <button class="hud-btn" id="btn-notes" title="地理筆記 (N)">📘 筆記</button>
     <button class="hud-btn" id="btn-view" title="切換第一/第三人稱 (V)">👁 視角</button>
-    <button class="hud-btn" id="btn-herd" title="吹哨趕牛 (G)">🐄 趕牛</button>
+    <button class="hud-btn" id="btn-herd" title="吹哨趕牛／停止趕牛 (G)">🎵 吹哨</button>
+    <button class="hud-btn" id="btn-music" title="環境音樂 開／關 (M)">♫ 音樂</button>
     <button class="hud-btn" id="btn-settings" title="設置 (Esc)">⚙ 設置</button>
     <button class="hud-btn" id="btn-help" title="操作説明 (H)">⌨ 操作</button>
   </div>
@@ -106,6 +107,7 @@
 <div id="touch-ui" class="hidden">
   <div id="stick"><i></i></div>
   <button id="btn-sprint" title="疾跑（按住）">🏃</button>
+  <button id="btn-whistle" type="button" title="吹哨趕牛" aria-label="吹哨趕牛">🎵</button>
   <button id="btn-act" type="button" aria-label="交互">F</button>
 </div>
 
@@ -143,7 +145,7 @@
       'js/config.js', 'js/settings.js', 'js/quiz.js', 'js/story.js', 'js/world.js',
       'js/loader.js', 'js/player.js', 'js/npcs.js', 'js/ui.js', 'js/game.js'
     ];
-    const GAME_VER = 'v20261110h';   // 每次發佈變更，強制刷新緩存
+    const GAME_VER = 'v20261110i';   // 每次發佈變更，強制刷新緩存
   (async () => {
     for (const src of scripts) {
       await new Promise((res, rej) => {

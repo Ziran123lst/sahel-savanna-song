@@ -16,6 +16,7 @@
     invertMove: false,      // 反轉移動方向（前後）
     cameraDist: 1.0,        // 相機距離係數（0.6 – 1.6，越大越遠）
     volume: 0.8,            // 音量 0 – 1
+    ambient: true,          // 環境音樂（WebAudio 合成的草原氛圍）
     quality: 'high'         // high | medium | low
   };
 
@@ -53,6 +54,16 @@
     apply(key) {
       const d = this.data;
       if (key === 'volume' && S.UI && S.UI.SFX) { S.UI.SFX.master = d.volume; }
+      if (key === 'volume' && S.UI && S.UI.Ambient) { S.UI.Ambient.setVolume(d.volume); }
+      if (key === 'ambient' && S.UI && S.UI.Ambient) {
+        const A = S.UI.Ambient, want = !!d.ambient;
+        // 只在狀態真的改變時執行，避免 Ambient.setOn 回寫設定時重複啟動／停止
+        if (A.on !== want) {
+          A.on = want;
+          if (S.UI.game && S.UI.game.started) { if (want) A.start(); else A.stop(); }
+        }
+        if (S.UI.syncMusicButton) S.UI.syncMusicButton();
+      }
       if (key === 'quality' && S.World && S.World.applyQuality) { S.World.applyQuality(d.quality); }
       // lookSensitivity / moveSensitivity / invert* / cameraDist 由 Player 每幀讀取，無需即時生效
     },

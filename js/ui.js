@@ -33,7 +33,187 @@
     bad() { this.tone(240, 0.22, 'sawtooth', 0.05, 150); },
     talk() { this.tone(320, 0.06, 'sine', 0.03); },
     open() { this.tone(600, 0.1, 'sine', 0.05, 800); },
-    rain() { this.tone(1200, 0.5, 'noise' in this ? 'sine' : 'sine', 0.02, 300); }
+    rain() { this.tone(1200, 0.5, 'noise' in this ? 'sine' : 'sine', 0.02, 300); },
+
+    /* 喚牛口哨：兩聲上滑短哨，加輕微顫音，聽起來才像「吹哨」而非按鍵音。
+     * stop=true 時音高稍低，用來區分「收哨停止趕牛」。 */
+    whistle(stop) {
+      if (!this.on) return;
+      this._init(); const ctx = this.ctx; if (!ctx) return;
+      if (ctx.state === 'suspended') ctx.resume();
+      const base = stop ? 640 : 880, t0 = ctx.currentTime;
+      [0, 0.21].forEach((off, i) => {
+        const o = ctx.createOscillator(), g = ctx.createGain();
+        const vib = ctx.createOscillator(), vibG = ctx.createGain();
+        const f = base * (i ? 1.18 : 1);
+        o.type = 'sine';
+        o.frequency.setValueAtTime(f * 0.80, t0 + off);
+        o.frequency.exponentialRampToValueAtTime(f, t0 + off + 0.055);
+        o.frequency.setValueAtTime(f, t0 + off + 0.10);
+        o.frequency.exponentialRampToValueAtTime(f * 0.94, t0 + off + 0.19);
+        vib.frequency.value = 17; vibG.gain.value = f * 0.009;
+        vib.connect(vibG); vibG.connect(o.frequency);
+        const peak = 0.10 * this.master;
+        g.gain.setValueAtTime(0.0001, t0 + off);
+        g.gain.exponentialRampToValueAtTime(Math.max(0.0002, peak), t0 + off + 0.03);
+        g.gain.setValueAtTime(Math.max(0.0002, peak), t0 + off + 0.12);
+        g.gain.exponentialRampToValueAtTime(0.0001, t0 + off + 0.22);
+        o.connect(g); g.connect(ctx.destination);
+        o.start(t0 + off); o.stop(t0 + off + 0.24);
+        vib.start(t0 + off); vib.stop(t0 + off + 0.24);
+      });
+    }
+  };
+
+  /* ---------------- 環境音樂（WebAudio 程序化合成） ----------------
+   * 不引入任何外部音訊檔，因此沒有授權與來源問題，也不增加下載體積。
+   * 三層：草原風聲（低通噪聲）＋ 五聲音階柔和墊音 ＋ 偶發的遠處鈴音；
+   * 雨季自動把風聲轉成細雨。整體音量刻意壓低，只作背景，不蓋過對話與音效。
+   */
+  const Ambient = {
+    ctx: null, on: true, running: false, season: 'dry',
+    master: 0.8, level: 0.20,
+    out: null, windGain: null, windFilter: null, rainGain: null,
+    pads: [], sources: [], timer: null, chordTimer: null,
+    chordIndex: 0, _chime: null, _shift: null,
+
+    _ctx() { if (!this.ctx) { SFX._init(); this.ctx = SFX.ctx; } return this.ctx; },
+
+    _noise(seconds) {
+      const ctx = this.ctx, len = Math.floor(ctx.sampleRate * seconds);
+      const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+      return buf;
+    },
+
+    _build() {
+      if (this.out) return;
+      const ctx = this._ctx(); if (!ctx) return;
+
+      const out = ctx.createGain();
+      out.gain.value = 0.0001;
+      out.connect(ctx.destination);
+      this.out = out;
+
+      // 風聲：白噪聲 → 低通 → 增益，慢速 LFO 讓風有起伏
+      const wind = ctx.createBufferSource();
+      wind.buffer = this._noise(3); wind.loop = true;
+      const wf = ctx.createBiquadFilter(); wf.type = 'lowpass'; wf.frequency.value = 340; wf.Q.value = 0.6;
+      const wg = ctx.createGain(); wg.gain.value = 0.50;
+      wind.connect(wf); wf.connect(wg); wg.connect(out);
+      const wl = ctx.createOscillator(); wl.frequency.value = 0.06;
+      const wlg = ctx.createGain(); wlg.gain.value = 0.26;
+      wl.connect(wlg); wlg.connect(wg.gain);
+      wind.start(); wl.start();
+      this.windFilter = wf; this.windGain = wg;
+      this.sources.push(wind, wl);
+
+      // 雨聲：高頻噪聲，旱季增益為 0
+      const rain = ctx.createBufferSource();
+      rain.buffer = this._noise(3); rain.loop = true;
+      const rf = ctx.createBiquadFilter(); rf.type = 'highpass'; rf.frequency.value = 1800;
+      const rg = ctx.createGain(); rg.gain.value = 0.0001;
+      rain.connect(rf); rf.connect(rg); rg.connect(out);
+      rain.start(); this.sources.push(rain); this.rainGain = rg;
+
+      // 墊音：三個振盪器構成柔和和弦，各自緩慢呼吸
+      this.pads = [146.83, 220.00, 293.66].map((f, i) => {
+        const o = ctx.createOscillator(); o.type = i === 1 ? 'triangle' : 'sine'; o.frequency.value = f;
+        const g = ctx.createGain(); g.gain.value = 0.022;
+        o.connect(g); g.connect(out);
+        const l = ctx.createOscillator(); l.frequency.value = 0.035 + i * 0.017;
+        const lg = ctx.createGain(); lg.gain.value = 0.016;
+        l.connect(lg); lg.connect(g.gain);
+        o.start(); l.start();
+        this.sources.push(o, l);
+        return { o, g };
+      });
+
+      // 偶發鈴音：五聲音階單音，像遠處的牛鈴
+      const scale = [293.66, 329.63, 392.00, 440.00, 587.33];
+      this._chime = () => {
+        if (!this.on || !this.running || !this.ctx || !this.out) return;
+        const c = this.ctx, now = c.currentTime, f = scale[Math.floor(Math.random() * scale.length)];
+        const o = c.createOscillator(), g = c.createGain();
+        o.type = 'sine'; o.frequency.value = f;
+        g.gain.setValueAtTime(0.0001, now);
+        g.gain.exponentialRampToValueAtTime(Math.max(0.0002, 0.045 * this.master), now + 0.05);
+        g.gain.exponentialRampToValueAtTime(0.0001, now + 2.4);
+        o.connect(g); g.connect(this.out);
+        o.start(now); o.stop(now + 2.5);
+        this.timer = setTimeout(this._chime, 9000 + Math.random() * 9000);
+      };
+
+      // 和弦緩慢移動，避免長時間聽起來完全不變
+      const chords = [[146.83, 220.00, 293.66], [130.81, 196.00, 261.63], [164.81, 246.94, 329.63]];
+      this._shift = () => {
+        if (!this.on || !this.running || !this.ctx) return;
+        this.chordIndex = (this.chordIndex + 1) % chords.length;
+        const c = this.ctx, now = c.currentTime;
+        chords[this.chordIndex].forEach((f, i) => {
+          if (this.pads[i]) this.pads[i].o.frequency.setTargetAtTime(f, now, 2.5);
+        });
+        this.chordTimer = setTimeout(this._shift, 16000 + Math.random() * 8000);
+      };
+    },
+
+    // 從設定讀取開關與音量；在用戶手勢之後呼叫才會真正發聲
+    syncSettings() {
+      const d = (S.Settings && S.Settings.data) || {};
+      this.master = typeof d.volume === 'number' ? d.volume : 0.8;
+      this.on = d.ambient !== false;
+    },
+
+    start() {
+      if (!this.on) return;
+      this._build();
+      const ctx = this._ctx(); if (!ctx || !this.out) return;
+      if (ctx.state === 'suspended') ctx.resume();
+      this.running = true;
+      const t = ctx.currentTime;
+      this.out.gain.cancelScheduledValues(t);
+      this.out.gain.setValueAtTime(Math.max(0.0001, this.out.gain.value), t);
+      this.out.gain.linearRampToValueAtTime(Math.max(0.0002, this.level * this.master), t + 2.5);
+      clearTimeout(this.timer); clearTimeout(this.chordTimer);
+      this.timer = setTimeout(this._chime, 6000 + Math.random() * 6000);
+      this.chordTimer = setTimeout(this._shift, 14000);
+      this.setSeason(this.season);
+    },
+
+    stop() {
+      this.running = false;
+      clearTimeout(this.timer); clearTimeout(this.chordTimer);
+      if (!this.ctx || !this.out) return;
+      const t = this.ctx.currentTime;
+      this.out.gain.cancelScheduledValues(t);
+      this.out.gain.setValueAtTime(Math.max(0.0001, this.out.gain.value), t);
+      this.out.gain.linearRampToValueAtTime(0.0001, t + 0.8);
+    },
+
+    setOn(v) {
+      this.on = !!v;
+      if (this.on) this.start(); else this.stop();
+      if (S.Settings) S.Settings.set('ambient', this.on);
+    },
+
+    setVolume(v) {
+      this.master = v;
+      if (!this.ctx || !this.out || !this.running) return;
+      const t = this.ctx.currentTime;
+      this.out.gain.cancelScheduledValues(t);
+      this.out.gain.setTargetAtTime(Math.max(0.0002, this.level * this.master), t, 0.3);
+    },
+
+    // 雨季：風聲變亮、加入細雨；旱季還原
+    setSeason(s) {
+      this.season = s === 'rain' ? 'rain' : 'dry';
+      if (!this.ctx || !this.out) return;
+      const t = this.ctx.currentTime, rain = this.season === 'rain';
+      this.windFilter.frequency.setTargetAtTime(rain ? 640 : 340, t, 1.5);
+      this.windGain.gain.setTargetAtTime(rain ? 0.26 : 0.50, t, 1.5);
+      this.rainGain.gain.setTargetAtTime(rain ? 0.14 : 0.0001, t, 1.5);
+    }
   };
 
   const UI = {
@@ -53,6 +233,10 @@
     $('btn-help').onclick = () => this.help();
     $('btn-settings').onclick = () => this.openSettings();
 
+    const bm = $('btn-music');
+    if (bm) bm.onclick = () => this.toggleMusic();
+    this.syncMusicButton();
+
     $('dlg-continue').onclick = () => this._continue();
     $('quiz-close').onclick = () => this._closeQuiz();
 
@@ -60,6 +244,21 @@
     this._renderMinimapBase();
     // 導航箭頭元素
     this._navArrow = $('nav-arrow');
+  };
+
+  /* 環境音樂快捷開關（HUD 的 ♫ 按鍵與 M 鍵共用） */
+  UI.syncMusicButton = function () {
+    const b = $('btn-music');
+    if (!b) return;
+    b.textContent = Ambient.on ? '♫ 音樂' : '♫ 靜音';
+    b.classList.toggle('off', !Ambient.on);
+    b.title = Ambient.on ? '環境音樂：開（按 M 關閉）' : '環境音樂：關（按 M 開啟）';
+  };
+
+  UI.toggleMusic = function () {
+    Ambient.setOn(!Ambient.on);
+    this.syncMusicButton();
+    if (this.toast) this.toast(Ambient.on ? '♫ 環境音樂已開啟' : '♫ 環境音樂已關閉', 'good');
   };
 
   /* ---------------- 設置面板 ---------------- */
@@ -110,6 +309,7 @@
     const r2 = panel.querySelector('.set-block:nth-child(2) .set-rows');
     r2.innerHTML =
       slider('volume', '音量', 0, 1, 0.05, v => Math.round(v * 100) + '%') +
+      toggle('ambient', '環境音樂（草原風聲與墊音）') +
       select('quality', '畫質', [
         { v: 'high', t: '高（陰影·高像素比）' },
         { v: 'medium', t: '中（平衡）' },
@@ -474,6 +674,7 @@
       ['N', '地理筆記'],
       ['H', '操作説明'],
       ['G', '吹哨趕牛／停止趕牛'],
+      ['M', '環境音樂 開／關'],
       ['Esc', '關閉當前面板']
     ];
     let html = '<h1>操作説明</h1><div class="sub">CONTROLS</div><div style="margin-top:10px">';
@@ -485,8 +686,12 @@
       '農業系統、農業的分類、薩赫勒遊牧業、南加州灌溉農業、饑荒的定義與成因、解決方法、農業科技的代價。' +
       '答錯也會記下解析——這是學習的一部分。</p>' +
       '<h2>放牛玩法</h2>' +
-      '<p>按 <b>G</b> 吹哨，附近的牛會跟着你走；把牠們帶到<b>牧民營地的畜欄</b>，' +
-      '歸欄 6 頭即可獲得家計與可持續發展指數獎勵。再按一次 <b>G</b> 停止趕牛。</p>' +
+      '<p>按 <b>G</b>，或點畫面右上角的 <b>🎵 吹哨</b> 鍵（手機在右下角），就會吹一聲喚牛口哨，' +
+      '附近的牛會跟着你走；把牠們帶到<b>牧民營地的畜欄</b>，' +
+      '歸欄 6 頭即可獲得家計與可持續發展指數獎勵。再吹一次哨停止趕牛。</p>' +
+      '<h2>環境音樂</h2>' +
+      '<p>背景是即時合成的草原風聲與輕柔墊音，雨季會轉為細雨聲，不需要額外下載音訊檔。' +
+      '可用 <b>M</b> 鍵、右上角的 <b>♫ 音樂</b> 鍵，或「設置 → 環境音樂」隨時開關；音量跟隨「音量」滑塊。</p>' +
       '<h2>資產與授權</h2>' +
       '<p>場景模型全部來自 <a href="https://poly.pizza/" target="_blank" rel="noopener">Poly Pizza</a>，' +
       '並逐一以 SHA-256 比對原始下載檔確認來源。' +
@@ -497,6 +702,7 @@
       '完整作者、來源、授權、SHA-256 及修改記錄見 <code>vendor/models/ATTRIBUTION.json</code>。</p>';
     const btns = [
       { label: '音效：' + (SFX.on ? '開' : '關'), ghost: true, onClick: () => { SFX.on = !SFX.on; this.help(fromTitle); } },
+      { label: '環境音樂：' + (Ambient.on ? '開' : '關'), ghost: true, onClick: () => { this.toggleMusic(); this.help(fromTitle); } },
       { label: fromTitle ? '返回標題' : '關閉', onClick: () => this.closeOverlay() }
     ];
     // 從標題頁進來時，無論點「返回標題」還是按 Esc，都回到標題，避免遊戲卡在未開始狀態
@@ -805,5 +1011,6 @@
   };
 
   UI.SFX = SFX;
+  UI.Ambient = Ambient;
   global.SOS.UI = UI;
 })(window);

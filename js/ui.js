@@ -491,8 +491,13 @@
       '<p>按 <b>G</b> 吹哨，附近的牛會跟着你走；把牠們帶到<b>牧民營地的畜欄</b>，' +
       '歸欄 6 頭即可獲得家計與可持續發展指數獎勵。再按一次 <b>G</b> 停止趕牛。</p>' +
       '<h2>資產與授權</h2>' +
-      '<p>場景中的部分開放模型來自 <a href="https://poly.pizza/" target="_blank" rel="noopener">Poly Pizza</a>：Quaternius 的模型採 CC0；madtrollstudio 與 Poly by Google 的模型採 CC BY 3.0。' +
-      '完整作者、來源、授權及修改記錄請參閱本遊戲倉庫的 <code>vendor/models/ATTRIBUTION.json</code>。</p>';
+      '<p>場景模型全部來自 <a href="https://poly.pizza/" target="_blank" rel="noopener">Poly Pizza</a>，' +
+      '並逐一以 SHA-256 比對原始下載檔確認來源。' +
+      '<b>Quaternius</b> 與 <b>hat_my_guy</b> 的模型為 <a href="https://creativecommons.org/publicdomain/zero/1.0/" target="_blank" rel="noopener">CC0 1.0</a>（公有領域）。' +
+      '下列模型採 <a href="https://creativecommons.org/licenses/by/3.0/" target="_blank" rel="noopener">CC BY 3.0</a>，特此署名：' +
+      '<b>Poly by Google</b>（Acacia、Boab、Schoolhouse）、<b>jeremy</b>（Camel、Chicken、Goat）、' +
+      '<b>madtrollstudio</b>（Cow）、<b>Kawin Kongwong</b>（Bang Luang Mosque）。' +
+      '完整作者、來源、授權、SHA-256 及修改記錄見 <code>vendor/models/ATTRIBUTION.json</code>。</p>';
     const btns = [
       { label: '音效：' + (SFX.on ? '開' : '關'), ghost: true, onClick: () => { SFX.on = !SFX.on; this.help(fromTitle); } },
       { label: fromTitle ? '返回標題' : '關閉', onClick: () => this.closeOverlay() }

@@ -9,21 +9,22 @@
     size: 460,          // 地形邊長（世界單位）
     seg: 150,           // 地形細分
     half: 230,          // 半徑
-    water: { x: -155, z: 46 }   // 旱谷水塘中心（低窪）
+    water: { x: -155, z: 46 }   // 低窪水源地中心
   };
 
   /* ---------- 據點（Sites）：決定地形、植被與建築佈局 ---------- */
+  /* 地點名稱只用 C5 筆記內或中性的地理用語；id 保持不變以免影響世界與任務鏈。 */
   const SITES = [
-    { id: 'village', name: '科多戈村',   x:   0, z:  48, r: 40, kind: 'village' },
-    { id: 'farm',    name: '自家農田',   x: -52, z: -14, r: 34, kind: 'farm'    },
-    { id: 'demo',    name: '示範田',     x:  44, z: -34, r: 28, kind: 'demo'    },
-    { id: 'well',    name: '老井與旱谷', x:-140, z:  52, r: 30, kind: 'well'    },
-    { id: 'mare',    name: '季節性水塘', x: 108, z: -58, r: 32, kind: 'mare'    },
+    { id: 'village', name: '薩赫勒村落', x:   0, z:  48, r: 40, kind: 'village' },
+    { id: 'farm',    name: '南部農田',   x: -52, z: -14, r: 34, kind: 'farm'    },
+    { id: 'demo',    name: '南部耕地',   x:  44, z: -34, r: 28, kind: 'demo'    },
+    { id: 'well',    name: '水井',       x:-140, z:  52, r: 30, kind: 'well'    },
+    { id: 'mare',    name: '水源地',     x: 108, z: -58, r: 32, kind: 'mare'    },
     { id: 'camp',    name: '牧民營地',   x: 128, z:-118, r: 28, kind: 'camp'    },
-    { id: 'nursery', name: '綠色長城苗圃', x:-30, z:-152, r: 34, kind: 'nursery' },
-    { id: 'dunes',   name: '沙丘前線',   x:  74, z:-180, r: 52, kind: 'dunes'   },
-    { id: 'market',  name: '卡亞鎮集市', x:   6, z: 172, r: 42, kind: 'market'  },
-    { id: 'station', name: '南下車站',   x: 104, z: 196, r: 26, kind: 'station' }
+    { id: 'nursery', name: '防風林',     x:-30, z:-152, r: 34, kind: 'nursery' },
+    { id: 'dunes',   name: '荒漠邊緣',   x:  74, z:-180, r: 52, kind: 'dunes'   },
+    { id: 'market',  name: '本地市場',   x:   6, z: 172, r: 42, kind: 'market'  },
+    { id: 'station', name: '村口',       x: 104, z: 196, r: 26, kind: 'station' }
   ];
 
   /* ---------- 調色板 ---------- */
@@ -108,7 +109,7 @@
     return h;
   }
 
-  // 低窪：旱谷水塘
+  // 低窪：水源地
   function pondBasin(x, z) {
     const d = Math.sqrt(dist2(x, z, WORLD.water.x, WORLD.water.z));
     const r = 34;

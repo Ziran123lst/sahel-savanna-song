@@ -215,6 +215,8 @@
     $('val-fert').textContent = Math.round(st.fertility);
     $('val-sus').textContent = Math.round(st.sustain);
     $('val-notes').textContent = st.notes.size;
+    const nt = $('notes-total');
+    if (nt) nt.textContent = '/' + (S.NOTES ? S.NOTES.length : 59);
     $('season-name').textContent = st.season === 'rain' ? '雨季' : '旱季';
     $('season-icon').textContent = st.season === 'rain' ? '🌧' : '☀';
     $('season-day').textContent = '第 ' + st.day + ' 天';
@@ -314,14 +316,8 @@
     this.mode = 'quiz';
     this._quizHandler = onDone;
     $('quiz-tag').textContent = item.groupLabel;
-    $('quiz-src').textContent = item.group === 'sahel_climate' ? 'DSE 地理 · 天氣與氣候 / 旱地環境'
-      : item.group === 'desertification' ? 'DSE 地理 · 消失中的綠色植被'
-        : item.group === 'soil' ? 'DSE 地理 · 旱地環境 / 土壤'
-          : item.group === 'techniques' ? 'DSE 地理 · 可持續土地管理'
-            : item.group === 'food' ? 'DSE 地理 · 農業與糧食安全'
-              : item.group === 'people' ? 'DSE 地理 · 人地關係 / 資源管理'
-                : item.group === 'migration' ? 'DSE 地理 · 人口遷移 / 可持續城市'
-                  : 'DSE 地理 · 可持續發展';
+    // 來源標示只用 C5 筆記的小節，不引用筆記以外的課程單元。
+    $('quiz-src').textContent = item.src || 'C5 農業與饑荒 · 課堂筆記';
     $('quiz-stem').innerHTML = item.q.replace(/\n/g, '<br>');
     const fig = $('quiz-figure');
     if (item.fig) { fig.textContent = item.fig; fig.classList.remove('hidden'); }
@@ -433,10 +429,10 @@
     html += '<h2>關鍵決定</h2>';
     const flags = g.flags;
     const flagRows = [
-      ['與牧民達成協議', flags.peace_deal],
-      ['與牧民關係緊張', flags.conflict],
-      ['向放貸人借了錢', flags.debt],
-      ['學會 zaï 技術', flags.learned_zai],
+      ['見過祖母 Aïcha', flags.met_aicha],
+      ['問過牧草的去處', flags.ask_grass],
+      ['認識土地負載力', flags.learned_load],
+      ['弄清畜牧季移方向', flags.learned_season],
       ['意願：留下', flags.wish_stay],
       ['意願：外出', flags.wish_go]
     ];
@@ -483,10 +479,11 @@
     let html = '<h1>操作説明</h1><div class="sub">CONTROLS</div><div style="margin-top:10px">';
     html += rows.map(r => '<div class="help-key"><span>' + r[0] + '</span><span>' + r[1] + '</span></div>').join('');
     html += '</div><h2>關於這個遊戲</h2>' +
-      '<p>你是 Amadou，薩赫勒地區科多戈村的農民。旱季比往年更長，糧倉只剩兩袋小米，父親十一年前去了南方。' +
-      '你要在<b>修復土地</b>、<b>維持家計</b>與<b>是否離開</b>之間做決定。</p>' +
-      '<p style="margin-top:10px">所有題目按<b>香港中學文憑試（DSE）地理科</b>的課程框架設計：' +
-      '旱地環境、荒漠化、農業與糧食安全、人口遷移、可持續發展。答錯也會記下解析——這是學習的一部分。</p>' +
+      '<p>你是 Amadou，薩赫勒地區一名隨季節放牧的牧民。跟着祖母、村民與長者，' +
+      '把課堂筆記《C5 農業與饑荒》從<b>農業系統</b>一路走到<b>農業科技的代價</b>。</p>' +
+      '<p style="margin-top:10px">所有對話、任務、題目與筆記條目<b>只取材自 C5《農業與饑荒》5.1–5.8</b>：' +
+      '農業系統、農業的分類、薩赫勒遊牧業、南加州灌溉農業、饑荒的定義與成因、解決方法、農業科技的代價。' +
+      '答錯也會記下解析——這是學習的一部分。</p>' +
       '<h2>放牛玩法</h2>' +
       '<p>按 <b>G</b> 吹哨，附近的牛會跟着你走；把牠們帶到<b>牧民營地的畜欄</b>，' +
       '歸欄 6 頭即可獲得家計與可持續發展指數獎勵。再按一次 <b>G</b> 停止趕牛。</p>' +
@@ -495,7 +492,7 @@
       '並逐一以 SHA-256 比對原始下載檔確認來源。' +
       '<b>Quaternius</b> 與 <b>hat_my_guy</b> 的模型為 <a href="https://creativecommons.org/publicdomain/zero/1.0/" target="_blank" rel="noopener">CC0 1.0</a>（公有領域）。' +
       '下列模型採 <a href="https://creativecommons.org/licenses/by/3.0/" target="_blank" rel="noopener">CC BY 3.0</a>，特此署名：' +
-      '<b>Poly by Google</b>（Acacia、Boab、Schoolhouse）、<b>jeremy</b>（Camel、Chicken、Goat）、' +
+      '<b>Poly by Google</b>（Acacia、Boab、Schoolhouse）、<b>jeremy</b>（Camel、Goat）、' +
       '<b>madtrollstudio</b>（Cow）、<b>Kawin Kongwong</b>（Bang Luang Mosque）。' +
       '完整作者、來源、授權、SHA-256 及修改記錄見 <code>vendor/models/ATTRIBUTION.json</code>。</p>';
     const btns = [
@@ -510,41 +507,43 @@
   };
 
   /* ---------------- 小遊戲 ---------------- */
+  /* 五個練習只演示筆記 C5 提過的耕作／放牧方式；type 標識保持不變，
+   * 以免影響任務鏈、設施交互與狀態欄。 */
   const MINI = {
     zai: {
-      title: '挖 zaï 坑',
-      sub: '一拃深，兩拃寬，坑裏放一把糞',
-      cols: 6, rows: 4, need: 8, cls: 'dug', icon: '🕳',
-      hint: '點擊格子挖坑。zaï 坑能<b>破除土壤結皮</b>、<b>集中雨水</b>，坑裏的堆肥還會引來白蟻打洞，讓水滲得更深。\n每挖一個坑消耗 3 升水（和泥、保墒）。',
-      tip: '真實數據：一公頃大約要挖 20,000 個坑——你在這裏挖 8 個，只是開始。'
+      title: '覆蓋耕作',
+      sub: '把禾稈殘株蓋在表土上',
+      cols: 6, rows: 4, need: 8, cls: 'dug', icon: '🌾',
+      hint: '筆記 5.8「其他土壤保育方式」：<b>覆蓋耕作——保護表土免受侵蝕</b>。\n點擊格子把禾稈、殘株覆蓋在表土上，替土壤擋住雨打與風蝕。',
+      tip: '土壤侵蝕是筆記 5.3 裏荒漠化流程的中間一步；先護住表土，才談得上保住養分。'
     },
     stone: {
-      title: '擺石線',
-      sub: '沿等高線鋪石，讓水慢下來',
+      title: '等高耕作',
+      sub: '沿等高線耕作，讓水慢下來',
       cols: 6, rows: 4, need: 4, cls: 'stone', icon: '🪨',
-      hint: '點擊<b>同一列</b>的格子連成一道石線（共需 4 道）。石線增加地表粗糙度，<b>減慢徑流、促進入滲</b>，把泥沙與有機質留在田裏。',
-      tip: '沿等高線擺放才有效——否則水會沿着石線沖走，反而衝出新的溝。'
+      hint: '筆記 5.8：<b>等高耕作——減少地表徑流、減慢土壤侵蝕</b>。\n點擊<b>同一列</b>的格子連成一道（共需 4 道），沿等高線耕作，雨水就不會順坡把表土沖走。',
+      tip: '要沿等高線才有效；順坡耕作會讓徑流加劇，反而沖出蝕溝。'
     },
     tree: {
-      title: '種白相思',
-      sub: 'Faidherbia albida · 反向物候的奇蹟樹',
+      title: '種植防風林',
+      sub: '筆記 5.8 的土壤保育方式',
       cols: 6, rows: 4, need: 5, cls: 'tree', icon: '🌳',
-      hint: '點擊 5 個格子種下樹苗。白相思<b>雨季落葉</b>（不遮作物）、<b>旱季長葉</b>（供飼料），還能固氮增肥。每棵消耗 12 升水。',
-      tip: '成活率取決於前兩年的護理。現實中苗圃會先育苗 6–12 個月再移栽。'
+      hint: '筆記 5.8：<b>種植防風林——減慢土壤侵蝕</b>。\n點擊 5 個格子種下樹苗，一排樹把風速降下來，表土便不易被吹走。',
+      tip: '筆記 5.7 亦提醒：引入農業科技未必百利而無害，在薩赫勒挖水井也可能令環境退化。'
     },
     water: {
       title: '打水',
-      sub: '井深二十一米三',
+      sub: '旱季為畜羣取水',
       cols: 6, rows: 4, need: 6, cls: 'dug', icon: '💧',
-      hint: '井繩很長。點擊格子把桶放下去再提上來——每一桶都要拉很久。',
-      tip: '旱季末，村裏的井每天要排兩小時的隊。'
+      hint: '筆記 5.3：牧民要隨季節尋找牧草和水源。\n點擊格子把桶放下去再提上來，為畜羣備好旱季的水。',
+      tip: '筆記 5.6／5.7：誤用水資源（例如在薩赫勒大量挖井）會令地下水位下降、土壤鹽化。'
     },
     graze: {
-      title: '練習輪牧',
+      title: '練習畜牧季移',
       sub: '點還有草的格子，別把同一塊啃禿',
       cols: 6, rows: 4, need: 8, cls: 'grazed', icon: '🌿',
-      hint: '每一格是一塊草場。<b>點綠格</b>把草吃了（變成淺黃＝已吃）；<b>同一格點兩次</b>就會啃禿（變成土黃，不計數）。\n輪牧的訣竅：吃一塊、換一塊，給草留口氣重新長。',
-      tip: '現實中一塊草場被啃的次數要有限度——超了就退化成裸地，雨一衝土也走。'
+      hint: '筆記 5.3：<b>畜牧季移</b>——牲畜吃光一地的牧草就換一地，原本的牧地得以休養生息。\n<b>點綠格</b>把草吃了；<b>同一格點兩次</b>就會啃禿（不計數）。',
+      tip: '筆記 5.3：<b>過度放牧</b>會引致土壤結實、自然植被減少，是荒漠化的起點。'
     }
   };
 
@@ -600,15 +599,15 @@
     $('ov-panel').appendChild(row);
   };
 
-  /* 輪牧小遊戲：點綠格吃草，同一格點兩次會啃禿（不計數），教會"給草留口氣" */
+  /* 畜牧季移小遊戲：點綠格吃草，同一格點兩次會啃禿（不計數），對應筆記 5.3 避免過度放牧、讓牧地休養生息 */
   UI._grazeGame = function (need, onDone) {
     let fresh = 0, over = 0;
     const total = 6 * 4;
-    let html = '<h1>練習輪牧</h1><div class="sub">點還有草的格子，別把同一塊啃禿</div>' +
+    let html = '<h1>練習畜牧季移</h1><div class="sub">點還有草的格子，別把同一塊啃禿</div>' +
       '<div class="mg-bar"><i id="mg-bar"></i></div>' +
       '<div class="mg-grid" id="mg-grid"></div>' +
-      '<div class="mg-hint">每一格是一塊草場。<b>點綠格</b>把草吃了；<b>同一格點兩次</b>會啃禿（土黃，不計數）。吃一塊換一塊，給草留口氣。</div>' +
-      '<div class="mg-hint" style="margin-top:8px;opacity:.6">💡 現實裏一塊草場被啃的次數要有限度——超了就退化成裸地。</div>';
+      '<div class="mg-hint">筆記 5.3：<b>畜牧季移</b>——牲畜吃光一地牧草就換一地，原本的牧地得以休養生息。<b>點綠格</b>把草吃了；<b>同一格點兩次</b>會啃禿（不計數）。</div>' +
+      '<div class="mg-hint" style="margin-top:8px;opacity:.6">💡 筆記 5.3：<b>過度放牧</b>會引致土壤結實、自然植被減少，是荒漠化的起點。</div>';
     this.overlay(html, []);
     const grid = $('mg-grid');
     const state = new Array(total).fill('grass');
@@ -637,7 +636,7 @@
           c.classList.remove('grazed'); c.classList.add('over'); c.textContent = '🟫';
           fresh = Math.max(0, fresh - 1); over++;
           $('mg-bar').style.width = Math.min(100, (fresh / need) * 100) + '%';
-          SFX.bad(); UI.toast('啃禿了！輪牧就是要給草留口氣', 'bad');
+          SFX.bad(); UI.toast('啃禿了！要讓牧地休養生息', 'bad');
           updateDone();
         };
         updateDone();
@@ -676,8 +675,8 @@
       '<div class="kv"><span>土壤肥力（自家田）</span><b>' + Math.round(stats.fertility) + ' / 100</b></div>' +
       '<div class="kv"><span>可持續發展指數</span><b>' + Math.round(stats.sustain) + ' / 100</b></div>' +
       '<div class="kv"><span>存糧 / 現金</span><b>' + Math.round(stats.food) + ' kg · ' + Math.round(stats.cash).toLocaleString('en-US') + ' F</b></div>' +
-      '<h2>課程對照</h2><div>' +
-      ['旱地環境與荒漠化', '水土保持技術', '土壤侵蝕過程', '農業與糧食安全', '人口與土地壓力', '牧農關係與權屬', '遷移與生計多元化', '氣候變化與可持續發展']
+      '<h2>課程對照 · C5 農業與饑荒</h2><div>' +
+      ['5.1 農業系統', '5.2 農業的分類', '5.3 薩赫勒遊牧業', '5.4 南加州灌溉農業', '5.5 饑荒的定義', '5.6 饑荒的原因', '5.7 解決方法', '5.8 農業科技的代價']
         .map(t => '<span class="badge">' + t + '</span>').join('') + '</div>';
     this.overlay(html, [
       { label: '再玩一次（重新開始）', onClick: () => { this.closeOverlay(); onRestart(); } },
@@ -781,20 +780,22 @@
     const html =
       '<div class="sub">DSE GEOGRAPHY · OPEN WORLD ADVENTURE</div>' +
       '<h1>薩赫勒之歌</h1>' +
-      '<p style="margin-top:10px">Song of the Sahel —— 一個農夫、一公頃裂開的紅土，和一整片正在改變的大陸。</p>' +
+      '<p style="margin-top:10px">Song of the Sahel —— 一羣隨季節遷移的牛，和一本《C5 農業與饑荒》的課堂筆記。</p>' +
       '<div class="grid2" style="margin-top:20px">' +
-      '<div class="card"><div class="t">你將扮演</div><div class="d">Amadou，26 歲，薩赫勒地區科多戈村的農民。父親十一年前去了南方城市；祖父留下一公頃越來越硬的地。旱季比往年長了兩個月，糧倉只剩兩袋小米。</div></div>' +
-      '<div class="card"><div class="t">你將面對</div><div class="d">荒漠化的診斷、zaï 坑與石線、井水的深度、牧民與農人的邊界、集市的價格、車站的車票——以及最後那個問題：<b>留下，還是走？</b></div></div>' +
+      '<div class="card"><div class="t">你將扮演</div><div class="d">Amadou，薩赫勒地區一名牧民。跟着祖母、村民與長者，' +
+      '把筆記裏的<b>農業系統</b>、<b>遊牧業</b>、<b>饑荒</b>與<b>農業科技</b>，一節一節走成眼前這片草原。</div></div>' +
+      '<div class="card"><div class="t">你將面對</div><div class="d">農業系統的投入與產出、薩赫勒的自然環境與土地負載力、' +
+      '畜牧季移、近年轉變引致的環境退化、南加州灌溉農業、饑荒的成因與解決方法，以及使用農業科技的代價。</div></div>' +
       '</div>' +
-      '<h2>對應 DSE 地理科課程</h2>' +
-      '<div>' + ['旱地環境與荒漠化', '水土保持與土地修復', '土壤侵蝕過程', '農業與糧食安全', '人口與土地壓力', '牧農關係與土地權屬', '遷移與生計多元化', '氣候變化與可持續發展'].map(t => '<span class="badge">' + t + '</span>').join('') + '</div>' +
+      '<h2>對應課堂筆記《C5 農業與饑荒》</h2>' +
+      '<div>' + ['5.1 農業系統', '5.2 農業的分類', '5.3 薩赫勒遊牧業', '5.4 南加州灌溉農業', '5.5 饑荒的定義', '5.6 饑荒的原因', '5.7 解決方法', '5.8 農業科技的代價'].map(t => '<span class="badge">' + t + '</span>').join('') + '</div>' +
       '<h2>玩法</h2>' +
       '<ul>' +
-      '<li>在<b>開放世界</b>裏行走：村莊、農田、旱谷、水塘、牧民營地、苗圃、沙丘、集市、車站</li>' +
-      '<li>與村民交談推進劇情，每個關鍵節點都有<b>DSE 風格的選擇題</b>（答錯也有詳細解析）</li>' +
-      '<li>親手<b>挖 zaï 坑、擺石線、種樹</b>——土地肥力會真的改變</li>' +
-      '<li>季節會推進：旱季與雨季交替，哈馬丹風隨時可能到來</li>' +
-      '<li>三種結局，取決於你的選擇與<b>可持續發展指數</b></li>' +
+      '<li>在<b>開放世界</b>裏放牧：村落、南部農田、水井、水源地、牧民營地、防風林、荒漠邊緣、本地市場、村口</li>' +
+      '<li>與村民交談推進劇情，每個關鍵節點都有<b>只取材自筆記的選擇題</b>（答錯也有詳細解析）</li>' +
+      '<li>按 <b>G</b> 吹哨趕牛，把牛帶回牧民營地的畜欄——這是一款放牛遊戲</li>' +
+      '<li>親手練習<b>等高耕作、種植防風林、畜牧季移</b>等筆記裏的耕作與放牧方式</li>' +
+      '<li>季節會推進：旱季與雨季交替；多種結局取決於你的選擇與<b>可持續發展指數</b></li>' +
       '</ul>' +
       '<p style="margin-top:14px;opacity:.7;font-size:13px">建議先按 <b>H</b> 查看操作説明。全程約 25–35 分鐘。</p>';
     this.overlay(html, [

@@ -23,13 +23,13 @@
     </div>
     <div class="res-row">
       <div class="res" title="水（升）"><span class="ico">💧</span><div class="bar"><i id="bar-water"></i></div><b id="val-water">0</b></div>
-      <div class="res" title="糧食（公斤·小米高粱）"><span class="ico">🌾</span><div class="bar"><i id="bar-food"></i></div><b id="val-food">0</b></div>
+      <div class="res" title="糧食（公斤·小米）"><span class="ico">🌾</span><div class="bar"><i id="bar-food"></i></div><b id="val-food">0</b></div>
       <div class="res" title="現金（西非法郎 F CFA）"><span class="ico">🪙</span><div class="bar"><i id="bar-cash"></i></div><b id="val-cash">0</b></div>
       <div class="res" title="土壤肥力（自家田）"><span class="ico">🟤</span><div class="bar"><i id="bar-fert"></i></div><b id="val-fert">0</b></div>
     </div>
     <div class="res-row">
       <div class="res wide" title="可持續發展指數：環境·經濟·社會的平衡"><span class="ico">♻</span><div class="bar"><i id="bar-sus"></i></div><b id="val-sus">50</b></div>
-      <div class="res" title="已收集的地理知識點"><span class="ico">📘</span><b id="val-notes">0</b><span class="unit">/30</span></div>
+      <div class="res" title="已收集的地理知識點"><span class="ico">📘</span><b id="val-notes">0</b><span class="unit" id="notes-total">/59</span></div>
     </div>
   </div>
   <div class="hud-right">
@@ -45,13 +45,13 @@
 <!-- ============ 小地圖 ============ -->
 <div id="minimap-wrap" class="hidden">
   <canvas id="minimap" width="200" height="200"></canvas>
-  <div class="mm-label">薩赫勒 · 科多戈地區</div>
+  <div class="mm-label">薩赫勒地區</div>
 </div>
 
 <!-- ============ 當前目標 ============ -->
 <div id="objective" class="hidden">
   <div class="obj-chapter" id="obj-chapter">序章</div>
-  <div class="obj-title" id="obj-title">尋找祖母</div>
+  <div class="obj-title" id="obj-title">農業系統</div>
   <ul class="obj-steps" id="obj-steps"></ul>
 </div>
 
@@ -78,8 +78,8 @@
 <div id="quiz" class="hidden">
   <div class="quiz-box">
     <div class="quiz-head">
-      <span class="quiz-tag" id="quiz-tag">荒漠化成因</span>
-      <span class="quiz-src" id="quiz-src">DSE 地理 · 消失中的綠色植被</span>
+      <span class="quiz-tag" id="quiz-tag">農業與饑荒</span>
+      <span class="quiz-src" id="quiz-src">C5 農業與饑荒 · 課堂筆記</span>
     </div>
     <div class="quiz-stem" id="quiz-stem"></div>
     <div id="quiz-figure" class="quiz-figure hidden"></div>
@@ -115,7 +115,7 @@
     <div class="ld-title">薩赫勒之歌</div>
     <div class="ld-sub">Song of the Sahel · 開放世界地理冒險</div>
     <div class="ld-bar"><i id="ld-progress"></i></div>
-    <div class="ld-tip" id="ld-tip">正在生成薩赫勒稀樹草原…</div>
+    <div class="ld-tip" id="ld-tip">正在生成薩赫勒草原…</div>
   </div>
 </div>
 
@@ -143,7 +143,7 @@
       'js/config.js', 'js/settings.js', 'js/quiz.js', 'js/story.js', 'js/world.js',
       'js/loader.js', 'js/player.js', 'js/npcs.js', 'js/ui.js', 'js/game.js'
     ];
-    const GAME_VER = 'v20261110g';   // 每次發佈變更，強制刷新緩存
+    const GAME_VER = 'v20261110h';   // 每次發佈變更，強制刷新緩存
   (async () => {
     for (const src of scripts) {
       await new Promise((res, rej) => {

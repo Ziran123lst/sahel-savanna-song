@@ -9,7 +9,7 @@
       "note": "公有領域，可自由使用與再分發，無需署名。"
     },
     "CC BY 3.0": {
-      "count": 8,
+      "count": 7,
       "url": "https://creativecommons.org/licenses/by/3.0/",
       "note": "必須署名；署名清單見本檔 attribution 欄位與遊戲內「資產與授權」説明。"
     }
@@ -82,20 +82,6 @@
       "attribution": "Camel by jeremy via Poly Pizza, licensed under CC BY 3.0.",
       "sha256": "42954d643daf1ec51532ba4c005f1e27243582ef521f5755e74c92f356c1bec8",
       "bytes": 51588,
-      "verification": "SHA-256 與 Poly Pizza 原始 GLB 下載檔完全一致",
-      "changes": "直接使用原始 GLB，未修改幾何與貼圖。"
-    },
-    {
-      "file": "chicken.glb",
-      "title": "Chicken",
-      "creator": "jeremy",
-      "source": "https://poly.pizza/m/1YE8U35HXsI",
-      "download": "https://static.poly.pizza/09e17ae3-1d4e-45a6-837e-7ea95422a569.glb",
-      "license": "CC BY 3.0",
-      "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
-      "attribution": "Chicken by jeremy via Poly Pizza, licensed under CC BY 3.0.",
-      "sha256": "7d6bbb1c4ef38c52dfd0807864d8c8c9522092c11ce41b704fbaa75dc657202e",
-      "bytes": 51732,
       "verification": "SHA-256 與 Poly Pizza 原始 GLB 下載檔完全一致",
       "changes": "直接使用原始 GLB，未修改幾何與貼圖。"
     },
@@ -339,6 +325,11 @@
     }
   ],
   "retiredAssets": [
+    {
+      "file": "chicken.glb",
+      "status": "removed-out-of-syllabus",
+      "reason": "C5《農業與饑荒》筆記 5.3 列出的薩赫勒牲畜為駱駝、山羊、肉牛，5.1 的有用產出例子為綿羊，並未把雞列為遊牧業牲畜。為使場景與筆記一致，已從預載、牲畜分佈、降級模型與遊戲內署名中移除，並以山羊、綿羊、駱駝補足數量。"
+    },
     {
       "file": "hut_variant_a.glb",
       "status": "rejected-duplicate",

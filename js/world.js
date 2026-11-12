@@ -243,7 +243,8 @@
   }
 
   /* ============ 樹 ============ */
-  /* kinds: 0 金合歡(傘形) 1 猴麪包 2 棕櫚 3 灌木 */
+  /* kinds: 0 傘形喬木 1 巨幹大樹 2 高幹樹 3 灌木
+   * （這裏只區分程序化幾何外形，不指涉筆記以外的特定樹種） */
   function placeTrees(scene, rng) {
     const treeSpots = [];
     const N = 300;
@@ -268,7 +269,7 @@
       if (nearSite) continue;
       let kind = 0;
       const r = rng();
-      if (a < 0.34 && r < 0.12) kind = 1;          // 猴麪包（南部）
+      if (a < 0.34 && r < 0.12) kind = 1;          // 巨幹大樹（南部）
       else if (Math.sqrt(dist2(x, z, WORLD.water.x, WORLD.water.z)) < 55 && r < 0.4) kind = 2;
       else if (a > 0.62 && r < 0.55) kind = 3;     // 灌木
       treeSpots.push({ x, z, kind, a });
@@ -333,13 +334,13 @@
     let ti = 0;
     for (const t of treeSpots) {
       const src = treeNodes[ti++ % treeNodes.length];
-      if (t.kind === 0) {        // 金合歡：傘形
+      if (t.kind === 0) {        // 傘形喬木
         placeOneTree(src, t.x, t.z, 4.0 + rng() * 2.4);
         if (rng() < 0.3) World.obstacles.push({ x: t.x, z: t.z, r: 1.1 });
-      } else if (t.kind === 1) { // 猴麪包：巨幹
+      } else if (t.kind === 1) { // 巨幹大樹
         placeOneTree(src, t.x, t.z, 5.6 + rng() * 1.4);
         World.obstacles.push({ x: t.x, z: t.z, r: 1.9 });
-      } else if (t.kind === 2) { // 棕櫚
+      } else if (t.kind === 2) { // 高幹樹
         placeOneTree(src, t.x, t.z, 5.2 + rng() * 2.0);
       } else {                   // 灌木：用最小的樹縮小
         placeOneTree(treeNodes[treeNodes.length - 1], t.x, t.z, 1.6 + rng() * 1.0);
@@ -462,7 +463,7 @@
     const roofMat = new THREE.MeshLambertMaterial({ color: COLOR.thatch });
     const houseSpecs = [];
 
-    /* --- 村莊科多戈 --- */
+    /* --- 薩赫勒村落 --- */
     const vil = SITES.find(s => s.id === 'village');
     for (let i = 0; i < 16; i++) {
       const ang = (i / 16) * 6.283 + rng() * 0.4;
@@ -484,7 +485,7 @@
     houseSpecs.push({ x: vil.x + 30, z: vil.z + 22, w: 7, d: 5, h: 3.0, kind: 'school', rot: 0.1 });
     World.obstacles.push({ x: vil.x + 30, z: vil.z + 22, r: 4.5 });
 
-    /* --- 集市卡亞鎮 --- */
+    /* --- 本地市場 --- */
     const mk = SITES.find(s => s.id === 'market');
     for (let i = 0; i < 14; i++) {
       const x = mk.x + (rng() - 0.5) * 58, z = mk.z + (rng() - 0.5) * 44;
@@ -507,7 +508,7 @@
     // 畜欄
     houseSpecs.push({ x: camp.x - 14, z: camp.z + 8, w: 12, d: 0.4, h: 1.2, kind: 'fence', rot: 0.2 });
 
-    /* --- 苗圃 --- */
+    /* --- 防風林 --- */
     const nur = SITES.find(s => s.id === 'nursery');
     houseSpecs.push({ x: nur.x, z: nur.z + 6, w: 6, d: 4.5, h: 2.6, kind: 'nursery', rot: 0 });
     World.obstacles.push({ x: nur.x, z: nur.z + 6, r: 3.4 });
@@ -515,7 +516,7 @@
       houseSpecs.push({ x: nur.x - 18 + i * 4, z: nur.z - 8, w: 3, d: 1.2, h: 0.5, kind: 'bed', rot: 0 });
     }
 
-    /* --- 車站 --- */
+    /* --- 村口 --- */
     const st = SITES.find(s => s.id === 'station');
     houseSpecs.push({ x: st.x, z: st.z + 8, w: 7, d: 4, h: 2.8, kind: 'school', rot: 0 });
     World.obstacles.push({ x: st.x, z: st.z + 8, r: 4 });
@@ -621,7 +622,7 @@
       scene.add(g);
     });
 
-    // 集會猴麪包樹：真實猴麪包模型優先，否則程序化
+    // 集會老樹：真實樹木模型優先，否則程序化
     const gx = vil.x + 2, gz = vil.z + 2;
     if (M.baobab) {
       placeModel(M.baobab, gx, gz, 9.5, 9, 0);
@@ -683,7 +684,8 @@
   }
 
   /* ============ 牲畜（真實 GLB 模型） ============ */
-  /* 牛 / 公牛 / 山羊 / 綿羊 / 駱駝 / 雞，散佈在牧民營地與水塘周邊。
+  /* 牛 / 公牛 / 山羊 / 綿羊 / 駱駝，散佈在牧民營地與水塘周邊。
+   * 牲畜種類只取 C5 筆記 5.3 所列：駱駝、山羊、肉牛（綿羊見 5.1 有用產出）。
    * 不同作者對模型使用的「單位」不一致（有的 1 單位=1 米，有的 1 單位≈800 米），
    * 所以統一用包圍盒把每隻動物歸一化到真實身高，避免巨大/過小。
    * 目標身高（米）由各模型真實比例給定。 */
@@ -691,7 +693,7 @@
     'vendor/models/cow.glb': 1.5, 'vendor/models/cow_quaternius.glb': 1.5,
     'vendor/models/cow_madtroll.glb': 1.5, 'vendor/models/bull.glb': 1.7,
     'vendor/models/goat.glb': 0.7, 'vendor/models/sheep.glb': 0.9,
-    'vendor/models/camel.glb': 2.2, 'vendor/models/chicken.glb': 0.42
+    'vendor/models/camel.glb': 2.2
   };
   function makeCowFallback(isBull) {
     const animal = new THREE.Group();
@@ -726,8 +728,7 @@
     const cfg = {
       goat: { color: 0xb98a61, dark: 0x5a3825, body: [0.38, 0.45, 0.72], head: 0.22, leg: 0.48 },
       sheep: { color: 0xd7d0bd, dark: 0x6e6252, body: [0.48, 0.52, 0.78], head: 0.2, leg: 0.42 },
-      camel: { color: 0xb9874e, dark: 0x69462c, body: [0.62, 0.68, 1.18], head: 0.25, leg: 0.9 },
-      chicken: { color: 0xc66a36, dark: 0x7d2e22, body: [0.22, 0.25, 0.34], head: 0.12, leg: 0.24 }
+      camel: { color: 0xb9874e, dark: 0x69462c, body: [0.62, 0.68, 1.18], head: 0.25, leg: 0.9 }
     }[key] || { color: 0xa8845e, dark: 0x5a3825, body: [0.42, 0.48, 0.72], head: 0.2, leg: 0.5 };
     const animal = new THREE.Group();
     const bodyMat = new THREE.MeshLambertMaterial({ color: cfg.color });
@@ -744,9 +745,6 @@
     if (key === 'camel') {
       const hump = new THREE.Mesh(new THREE.SphereGeometry(0.28, 8, 6), bodyMat);
       hump.scale.set(1.1, 1.5, 0.9); hump.position.set(0, cfg.leg + cfg.body[1] * 1.75, -0.18); animal.add(hump);
-    } else if (key === 'chicken') {
-      const beak = new THREE.Mesh(new THREE.ConeGeometry(0.055, 0.16, 5), new THREE.MeshLambertMaterial({ color: 0xe1a12b }));
-      beak.rotation.x = Math.PI / 2; beak.position.set(0, cfg.leg + cfg.body[1] * 1.55, cfg.body[2] + cfg.head * 1.35); animal.add(beak);
     } else {
       for (const side of [-1, 1]) {
         const ear = new THREE.Mesh(new THREE.ConeGeometry(0.045, 0.16, 5), darkMat);
@@ -867,10 +865,12 @@
       ['vendor/models/bull.glb',           1, 108, -58, 13],
       ['vendor/models/goat.glb',           2,  16,  82,  8],
       ['vendor/models/goat.glb',           2, 120, -74, 12],
+      ['vendor/models/goat.glb',           2, 100, -50, 10],
       ['vendor/models/sheep.glb',          2,  -8,  88,  8],
       ['vendor/models/sheep.glb',          3, 126, -110, 16],
+      ['vendor/models/sheep.glb',          2, 100, -50, 12],
       ['vendor/models/camel.glb',          2, 132, -124, 14],
-      ['vendor/models/chicken.glb',         7, 100, -50, 10]
+      ['vendor/models/camel.glb',          3, 100, -50, 16]
     ];
     defs.forEach(([path, count, cx, cz, rad]) => {
       const targetH = ANIMAL_TARGET_H[path] || 1.5;
@@ -989,11 +989,11 @@
     const rng = makeRng(20240721);
     const steps = [
       ['正在隆起薩赫勒的土地…', () => { this.ground = buildGround(); this.scene.add(this.ground); }],
-      ['正在灌注旱谷的水…', () => { this.scene.add(buildWater()); }],
-      ['正在種下金合歡與猴麪包樹…', () => { placeTrees(this.scene, rng); }],
+      ['正在灌注水源地的水…', () => { this.scene.add(buildWater()); }],
+      ['正在種下灌木與有刺樹木…', () => { placeTrees(this.scene, rng); }],
       ['正在鋪開草叢與礫石…', () => { placeGroundCover(this.scene, rng); }],
       ['正在砌起泥磚的村莊…', () => { makeBuildings(this.scene, rng); }],
-      ['正在打一口老井…', () => { makeWell(this.scene); }],
+      ['正在打一口水井…', () => { makeWell(this.scene); }],
       ['正在趕來牛羣…', () => { placeAnimals(this.scene); }],
       ['正在起風…', () => { makeDust(this.scene); }]
     ];

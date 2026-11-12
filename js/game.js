@@ -70,7 +70,7 @@
     const MODEL_LIST = [
       'vendor/models/farmer.glb',
       'vendor/models/cow.glb', 'vendor/models/bull.glb', 'vendor/models/goat.glb',
-      'vendor/models/sheep.glb', 'vendor/models/camel.glb', 'vendor/models/chicken.glb',
+      'vendor/models/sheep.glb', 'vendor/models/camel.glb',
       'vendor/models/woman.glb', 'vendor/models/adventurer.glb',
       'vendor/models/tree.glb', 'vendor/models/hut.glb',
       'vendor/models/mosque.glb', 'vendor/models/tent.glb', 'vendor/models/baobab.glb',
@@ -179,7 +179,7 @@
       setTimeout(() => {
         World.setSeason(st.v);
         this.state.season = st.v;
-        UI.toast(st.v === 'rain' ? '🌧 雨季來了 —— 第一場雨落在你挖好的坑裏' : '☀ 旱季開始', 'good');
+        UI.toast(st.v === 'rain' ? '🌧 雨季來了 —— 第一場雨落在草原上' : '☀ 旱季開始', 'good');
         UI.SFX.plant();
         if (st.v === 'rain') {
           this.state.fertility = clamp(this.state.fertility + 14, 0, 100);
@@ -379,12 +379,12 @@
     let items = [];
     if (req.arg && req.arg.indexOf(',') >= 0) {
       items = req.arg.split(',').map(id => S.QUIZ_ALL.find(q => q.id === id)).filter(Boolean);
-    } else if (req.arg && /^[A-H]\d+$/.test(req.arg)) {
+    } else if (req.arg && /^[A-Z]\d+$/.test(req.arg)) {
       const one = S.QUIZ_ALL.find(q => q.id === req.arg);
       if (one) items = [one];
     } else {
       // 從分組隨機抽 n 題（優先未答過的）
-      const pool = (S.QUIZ[req.arg] || S.QUIZ.desertification).items;
+      const pool = (S.QUIZ[req.arg] || S.QUIZ.sahel53).items;
       const unseen = pool.filter(q => !this._asked.has(q.id));
       const src = unseen.length ? unseen : pool;
       const n = Math.min(req.n || 1, src.length);
@@ -427,22 +427,22 @@
           this.state.water = clamp(this.state.water - count * 3, 0, 260);
           this.state.fertility = clamp(this.state.fertility + count * 3.2, 0, 100);
           this.state.sustain = clamp(this.state.sustain + count * 1.4, 0, 100);
-          UI.toast('🕳 挖了 ' + count + ' 個 zaï 坑　肥力 +' + (count * 3.2).toFixed(0), 'good');
+          UI.toast('🌾 覆蓋了 ' + count + ' 格表土　減慢土壤侵蝕', 'good');
         } else if (type === 'stone') {
           this.state.stones += count;
           this.state.fertility = clamp(this.state.fertility + count * 4.0, 0, 100);
           this.state.sustain = clamp(this.state.sustain + count * 1.8, 0, 100);
-          UI.toast('🪨 擺了 ' + count + ' 道石線　徑流減慢，入滲增加', 'good');
+          UI.toast('🌾 做了 ' + count + ' 道等高耕作　減少地表徑流、減慢土壤侵蝕', 'good');
         } else if (type === 'tree') {
           this.state.trees += count;
           this.state.water = clamp(this.state.water - count * 12, 0, 260);
           this.state.fertility = clamp(this.state.fertility + count * 2.6, 0, 100);
           this.state.sustain = clamp(this.state.sustain + count * 2.4, 0, 100);
-          UI.toast('🌳 種下 ' + count + ' 棵白相思　旱季有飼料，雨季有肥', 'good');
+          UI.toast('🌳 種下 ' + count + ' 排防風林　減慢土壤侵蝕', 'good');
         } else if (type === 'graze') {
           this.state.fertility = clamp(this.state.fertility + count * 1.1, 0, 100);
           this.state.sustain = clamp(this.state.sustain + count * 1.0, 0, 100);
-          UI.toast('🌿 輪牧練習：吃 ' + count + ' 塊草場，給草留了口氣', 'good');
+          UI.toast('🌿 畜牧季移：讓 ' + count + ' 塊牧地休養生息', 'good');
         } else {
           this.state.water = clamp(this.state.water + count * 12, 0, 260);
           UI.toast('💧 打了 ' + count + ' 桶水', 'good');
@@ -504,7 +504,7 @@
         return;
       }
     }
-    // 3) 普通 NPC 閒聊：必須排在世界設施之前，否則老井、水塘、苗圃、集市
+    // 3) 普通 NPC 閒聊：必須排在世界設施之前，否則水井、水源地、防風林、本地市場
     //    區域裏的村民會被打水/賣糧攔住，按 F 永遠開不了口
     if (near) { this.talkTo(near.spec.id, 'start'); return; }
     // 4) 世界設施（附近沒有村民時才生效）
@@ -544,12 +544,12 @@
   };
 
   Game.getSeedlings = function () {
-    if (this._seedCD && Date.now() - this._seedCD < 25000) { UI.toast('苗圃今天已經給你了。樹木要慢慢長。', 'bad'); return; }
-    if (this.state.cash < 500) { UI.toast('一株苗要錢。你先去集市賣點糧食。', 'bad'); return; }
+    if (this._seedCD && Date.now() - this._seedCD < 25000) { UI.toast('今天已經領過樹苗了。防風林要慢慢長。', 'bad'); return; }
+    if (this.state.cash < 500) { UI.toast('種防風林要先有本錢。你先去本地市場賣點糧食。', 'bad'); return; }
     this._seedCD = Date.now();
     this.state.cash -= 500;
     this.syncHUD();
-    UI.toast('領取 3 株白相思苗（－500 F）。現在就把它們種下。', 'good');
+    UI.toast('領取 3 株樹苗（－500 F）。現在把它們種成防風林。', 'good');
     setTimeout(() => this.runMini('tree', 3, () => { }, false), 320);
   };
 
@@ -559,7 +559,7 @@
     this._stormT = sec || 20;
     World.setStorm(true);
     UI.flash(true);
-    UI.toast('🌪 哈馬丹風來了 —— 空氣中全是撒哈拉的沙', 'bad');
+    UI.toast('🌪 旱季揚沙 —— 風把沙吹進田裏', 'bad');
     setTimeout(() => UI.flash(false), 900);
   };
 
@@ -588,7 +588,7 @@
       this.state.day++;
       this.state.water = clamp(this.state.water - 3, 0, 260);
       this.state.food = clamp(this.state.food - 1.8, 0, 999);
-      if (this.state.water <= 5) { UI.toast('水快沒了 —— 去旱谷或水塘打水', 'bad'); this.state.sustain = clamp(this.state.sustain - 0.6, 0, 100); }
+      if (this.state.water <= 5) { UI.toast('水快沒了 —— 去水井或水源地打水', 'bad'); this.state.sustain = clamp(this.state.sustain - 0.6, 0, 100); }
       if (this.state.food <= 10) { UI.toast('糧倉見底了', 'bad'); this.state.sustain = clamp(this.state.sustain - 0.8, 0, 100); }
       // 雨季肥力緩慢恢復
       if (this.state.season === 'rain') this.state.fertility = clamp(this.state.fertility + 0.25, 0, 100);
@@ -601,7 +601,7 @@
       if (this._stormT <= 0) {
         this._stormOn = false;
         World.setStorm(false);
-        UI.toast('風停了。沙落在田裏，也落在你的坑裏。');
+        UI.toast('風停了，沙落在田裏。');
       }
     } else if (this.state.season === 'dry' && this.started && Math.random() < dt * 0.0035) {
       this.triggerStorm(16);
@@ -617,7 +617,7 @@
       }
       if (!prompt && this.taskPoint && this.taskPoint.type !== 'goto' &&
         dist2(Player.pos.x, Player.pos.z, this.taskPoint.x, this.taskPoint.z) < 42) {
-        const t = { zai: '開始挖 zaï 坑', stone: '開始擺石線', tree: '開始種樹', water: '打水' }[this.taskPoint.type];
+        const t = { zai: '開始覆蓋耕作', stone: '開始等高耕作', tree: '開始種植防風林', graze: '開始畜牧季移', water: '打水' }[this.taskPoint.type];
         prompt = t;
       }
       if (!prompt) {
@@ -629,10 +629,10 @@
       }
       if (!prompt) {
         const zn = S.zoneAt(Player.pos.x, Player.pos.z);
-        if (zn && zn.id === 'well') prompt = '在老井打水';
-        else if (zn && zn.id === 'mare') prompt = '在水塘打水';
+        if (zn && zn.id === 'well') prompt = '在水井打水';
+        else if (zn && zn.id === 'mare') prompt = '在水源地打水';
         else if (zn && zn.id === 'market') prompt = '賣糧';
-        else if (zn && zn.id === 'nursery') prompt = '領取樹苗';
+        else if (zn && zn.id === 'nursery') prompt = '領取防風林樹苗';
       }
     }
     UI.prompt(UI.mode ? null : prompt);

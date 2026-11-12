@@ -43,9 +43,12 @@
   </div>
 </div>
 
-<!-- ============ 小地圖 ============ -->
+<!-- ============ 小地圖 + 地段懸浮標示 ============ -->
 <div id="minimap-wrap" class="hidden">
   <canvas id="minimap" width="200" height="200"></canvas>
+  <div id="mm-sites"></div>
+  <div id="mm-tip" class="sims-tip hidden"></div>
+  <button id="mm-expand" title="打開世界地圖 (B)">⤢ 世界地圖</button>
   <div class="mm-label">薩赫勒地區</div>
 </div>
 
@@ -103,6 +106,33 @@
 <div id="toast-wrap"></div>
 <div id="fx-flash"></div>
 
+<!-- ============ 世界上方的浮空地段標籤 ============ -->
+<div id="world-labels"></div>
+
+<!-- ============ 全屏世界地圖（模擬人生 Map View 風格） ============ -->
+<div id="world-map" class="hidden">
+  <div class="wm-shell">
+    <div class="wm-head">
+      <div>
+        <div class="wm-kicker">WORLD MAP · 薩赫勒地區</div>
+        <h2>世界地圖</h2>
+        <div class="wm-sub">點選地段查看資料，或把它設為導航目標。</div>
+      </div>
+      <button id="wm-close" class="wm-x" title="關閉 (Esc / B)">✕</button>
+    </div>
+    <div class="wm-body">
+      <div class="wm-map">
+        <canvas id="wm-canvas" width="520" height="520"></canvas>
+        <div id="wm-pins"></div>
+      </div>
+      <div class="wm-side">
+        <div class="wm-side-head">地段 <b>10</b> 處</div>
+        <div id="wm-cards"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ============ 移動端搖桿 ============ -->
 <div id="touch-ui" class="hidden">
   <div id="stick"><i></i></div>
@@ -145,7 +175,7 @@
       'js/config.js', 'js/settings.js', 'js/quiz.js', 'js/story.js', 'js/world.js',
       'js/loader.js', 'js/player.js', 'js/npcs.js', 'js/ui.js', 'js/game.js'
     ];
-    const GAME_VER = 'v20261110i';   // 每次發佈變更，強制刷新緩存
+    const GAME_VER = 'v20261110k';   // 每次發佈變更，強制刷新緩存
   (async () => {
     for (const src of scripts) {
       await new Promise((res, rej) => {

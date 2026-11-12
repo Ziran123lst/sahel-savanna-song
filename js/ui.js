@@ -237,11 +237,22 @@
     if (bm) bm.onclick = () => this.toggleMusic();
     this.syncMusicButton();
 
+    // 地段懸浮標示：小地圖標記、世界地圖、世界上方浮空標籤
+    this.buildSiteMarkers();
+    this.buildWorldLabels();
+    const me = $('mm-expand');
+    if (me) me.onclick = () => this.toggleWorldMap();
+    const wmc = $('wm-close');
+    if (wmc) wmc.onclick = () => this.closeWorldMap();
+    const wmbg = $('world-map');
+    if (wmbg) wmbg.addEventListener('click', e => { if (e.target === wmbg) this.closeWorldMap(); });
+
     $('dlg-continue').onclick = () => this._continue();
     $('quiz-close').onclick = () => this._closeQuiz();
 
-    // 小地圖背景預渲染
-    this._renderMinimapBase();
+    // 小地圖背景預渲染（小地圖 200px 帶地名；世界地圖 520px 高清版、不重複標地名）
+    this._mmBase = this._renderMinimapBase(200, true);
+    this._wmBase = this._renderMinimapBase(520, false);
     // 導航箭頭元素
     this._navArrow = $('nav-arrow');
   };
@@ -259,6 +270,227 @@
     Ambient.setOn(!Ambient.on);
     this.syncMusicButton();
     if (this.toast) this.toast(Ambient.on ? '♫ 環境音樂已開啟' : '♫ 環境音樂已關閉', 'good');
+  };
+
+  /* ---------------- 地段懸浮標示（生活模擬風格） ----------------
+   * 名稱與描述只取材自 C5《農業與饑荒》5.1–5.8；圖形與配色全部自製。
+   * 三處呈現：小地圖標記＋資訊卡、全屏世界地圖、世界上方浮空標籤。
+   */
+  const SITE_META = {
+    village: { kind: '村落', color: '#e8871e', desc: '村民聚居之處，集會樹下討論農事與畜牧季移。' },
+    farm:    { kind: '農地', color: '#5c9a3f', desc: '種植作物的耕地；休耕期長短直接影響土壤養分。' },
+    demo:    { kind: '耕地', color: '#7ab648', desc: '練習覆蓋耕作、等高耕作等土壤保育方式的耕地。' },
+    well:    { kind: '水源', color: '#3b8fb5', desc: '抽取地下水供人畜飲用；井旁牲畜聚集易致過度放牧。' },
+    mare:    { kind: '水源', color: '#3b8fb5', desc: '旱季為畜羣取水的地方，也是牲畜集聚之處。' },
+    camp:    { kind: '放牧', color: '#d9a520', desc: '隨季節遷移的牧民與畜欄所在，牛羣歸欄的地方。' },
+    nursery: { kind: '林地', color: '#3f7a45', desc: '種植防風林以減慢土壤侵蝕、保護表土。' },
+    dunes:   { kind: '荒漠', color: '#c89a55', desc: '土地退化與荒漠化流程的起點，植被難以恢復。' },
+    market:  { kind: '市場', color: '#9a5fb0', desc: '買賣糧食、以工作換取糧食的地方。' },
+    station: { kind: '村口', color: '#8a8f86', desc: '村落出入口，村民往來與訊息交流之處。' }
+  };
+  const siteMeta = s => SITE_META[s.kind] || { kind: '地段', color: '#57c9b0', desc: '' };
+  const sitePct = v => (v + S.WORLD.half) / S.WORLD.size * 100;
+  const siteDist = (p, s) => p ? Math.round(Math.hypot(p.x - s.x, p.z - s.z)) : 0;
+
+  UI.buildSiteMarkers = function () {
+    const wrap = $('mm-sites');
+    if (!wrap) return;
+    wrap.innerHTML = '';
+    S.SITES.forEach(s => {
+      const m = siteMeta(s);
+      const pin = document.createElement('div');
+      pin.className = 'mm-pin';
+      pin.dataset.id = s.id;
+      pin.style.left = sitePct(s.x) + '%';
+      pin.style.top = sitePct(s.z) + '%';
+      pin.style.setProperty('--pin', m.color);
+      pin.innerHTML = '<i class="sims-gem"></i>';
+      pin.addEventListener('mouseenter', () => this.showSiteTip(s));
+      pin.addEventListener('mouseleave', () => this.hideSiteTip());
+      pin.addEventListener('click', () => this.showSiteTip(s));
+      wrap.appendChild(pin);
+    });
+  };
+
+  UI.showSiteTip = function (s) {
+    clearTimeout(this._tipTimer);
+    const tip = $('mm-tip');
+    if (!tip) return;
+    const m = siteMeta(s), d = siteDist(this._playerPos, s);
+    tip.innerHTML =
+      '<div class="st-top"><span class="st-kind">' + m.kind + '</span></div>' +
+      '<h4>' + s.name + '</h4><p>' + m.desc + '</p>' +
+      '<div class="st-foot"><span class="st-dist">距你 ' + d + ' 步</span>' +
+      '<button type="button">設為目標 ▸</button></div>';
+    tip.classList.remove('hidden');
+    tip.onmouseenter = () => clearTimeout(this._tipTimer);
+    tip.onmouseleave = () => this.hideSiteTip();
+    tip.querySelector('button').onclick = () => this.setMapTarget(s);
+    const wrap = $('mm-sites');
+    if (wrap) wrap.querySelectorAll('.mm-pin').forEach(p =>
+      p.classList.toggle('active', p.dataset.id === s.id));
+    this._tipSite = s;
+  };
+
+  UI.hideSiteTip = function () {
+    clearTimeout(this._tipTimer);
+    this._tipTimer = setTimeout(() => {
+      const t = $('mm-tip');
+      if (t) t.classList.add('hidden');
+      const wrap = $('mm-sites');
+      if (wrap) wrap.querySelectorAll('.mm-pin').forEach(p => p.classList.remove('active'));
+      this._tipSite = null;
+    }, 180);
+  };
+
+  UI.setMapTarget = function (s) {
+    // 再點同一地段＝取消導航，方便玩家隨時改主意
+    if (this.game && this.game._mapTarget && this.game._mapTarget.siteId === s.id) {
+      this.game._mapTarget = null;
+      this.hideSiteTip();
+      this.closeWorldMap();
+      if (this.toast) this.toast('🧭 已取消導航目標', 'good');
+      return;
+    }
+    if (this.game) {
+      this.game._mapTarget = { x: s.x, z: s.z, siteId: s.id, name: s.name };
+    }
+    this.hideSiteTip();
+    this.closeWorldMap();
+    if (this.toast) this.toast('🧭 已把「' + s.name + '」設為導航目標，跟着箭頭走', 'good');
+  };
+
+  UI.updateSiteMarkers = function (playerPos) {
+    const wrap = $('mm-sites');
+    if (!wrap || !playerPos) return;
+    wrap.querySelectorAll('.mm-pin').forEach(p => {
+      const s = S.SITES.find(x => x.id === p.dataset.id);
+      if (s) p.classList.toggle('here', siteDist(playerPos, s) < s.r);
+    });
+    // 資訊卡開着時同步距離
+    if (this._tipSite && $('mm-tip') && !$('mm-tip').classList.contains('hidden')) {
+      const d = $('mm-tip').querySelector('.st-dist');
+      if (d) d.textContent = '距你 ' + siteDist(playerPos, this._tipSite) + ' 步';
+    }
+  };
+
+  /* ---------- 全屏世界地圖 ---------- */
+  UI.worldMap = function () {
+    if (this.mode && this.mode !== 'worldmap') return;
+    const panel = $('world-map');
+    if (!panel) return;
+    const navId = this.game && this.game._mapTarget ? this.game._mapTarget.siteId : null;
+    // 底圖：世界地圖用 520px 高清底圖，與畫布 1:1，放大後依然清晰
+    const cv = $('wm-canvas');
+    const base = this._wmBase || this._mmBase;
+    if (cv && base) {
+      const c = cv.getContext('2d');
+      c.imageSmoothingEnabled = true;
+      c.clearRect(0, 0, cv.width, cv.height);
+      c.drawImage(base, 0, 0, cv.width, cv.height);
+    }
+    const pins = $('wm-pins'), cards = $('wm-cards');
+    if (pins) {
+      pins.innerHTML = S.SITES.map(s => {
+        const m = siteMeta(s);
+        const cls = 'wm-pin' + (siteDist(this._playerPos, s) < s.r ? ' here' : '') +
+          (navId === s.id ? ' nav' : '');
+        return '<div class="' + cls + '" data-id="' + s.id + '" style="left:' + sitePct(s.x) + '%;top:' +
+          sitePct(s.z) + '%;--pin:' + m.color + '"><i class="sims-gem"></i>' +
+          '<span class="wm-pin-name">' + s.name + '</span></div>';
+      }).join('');
+      pins.querySelectorAll('.wm-pin').forEach(el => {
+        el.onclick = () => {
+          const card = cards && cards.querySelector('.wm-card[data-id="' + el.dataset.id + '"]');
+          if (card) { card.click(); card.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
+        };
+      });
+    }
+    if (cards) {
+      cards.innerHTML = S.SITES.map(s => {
+        const m = siteMeta(s), d = siteDist(this._playerPos, s);
+        return '<div class="wm-card' + (navId === s.id ? ' nav' : '') + '" data-id="' + s.id + '" style="--pin:' + m.color + '">' +
+          '<i class="sims-gem"></i><div class="wc-body">' +
+          '<div class="wc-top"><h4>' + s.name + '</h4><span class="wc-dist">' + d + ' m</span></div>' +
+          '<div class="wc-kind">' + m.kind + '</div><p>' + m.desc + '</p>' +
+          (d < s.r ? '<span class="wc-here">你在此處</span>' : '') +
+          '<button type="button" class="wc-go">前往 ▸</button>' +
+          '</div></div>';
+      }).join('');
+      cards.querySelectorAll('.wm-card').forEach(el => {
+        const s = S.SITES.find(x => x.id === el.dataset.id);
+        el.onclick = () => {
+          cards.querySelectorAll('.wm-card').forEach(x => x.classList.remove('active'));
+          if (pins) pins.querySelectorAll('.wm-pin').forEach(x => x.classList.remove('active'));
+          el.classList.add('active');
+          const pin = pins && pins.querySelector('.wm-pin[data-id="' + s.id + '"]');
+          if (pin) pin.classList.add('active');
+        };
+        el.querySelector('.wc-go').onclick = ev => { ev.stopPropagation(); this.setMapTarget(s); };
+      });
+    }
+    panel.classList.remove('hidden');
+    this.mode = 'worldmap';
+  };
+
+  UI.closeWorldMap = function () {
+    const p = $('world-map');
+    if (p) p.classList.add('hidden');
+    if (this.mode === 'worldmap') this.mode = null;
+  };
+
+  UI.toggleWorldMap = function () {
+    if (this.mode === 'worldmap') this.closeWorldMap();
+    else this.worldMap();
+  };
+
+  /* ---------- 世界上方的浮空地段標籤 ---------- */
+  UI.buildWorldLabels = function () {
+    const layer = $('world-labels');
+    if (!layer) return;
+    layer.innerHTML = '';
+    this._wlItems = {};
+    S.SITES.forEach(s => {
+      const m = siteMeta(s);
+      const el = document.createElement('div');
+      el.className = 'wl-item';
+      el.style.setProperty('--pin', m.color);
+      el.style.opacity = '0';
+      el.innerHTML = '<i class="sims-gem"></i><span>' + s.name + '</span><span class="wl-dist"></span>';
+      layer.appendChild(el);
+      this._wlItems[s.id] = el;
+    });
+  };
+
+  UI.updateWorldLabels = function (playerPos, camera) {
+    if (!this._wlItems || !camera || !window.THREE || !playerPos) return;
+    const w = window.innerWidth, h = window.innerHeight;
+    const v = new THREE.Vector3();
+    const W = S.World;
+    const MAXD = 140;                      // 只標近處地段：遠景名牌會貼住地平線，意義不大
+    for (const s of S.SITES) {
+      const el = this._wlItems[s.id];
+      if (!el) continue;
+      const d = Math.hypot(playerPos.x - s.x, playerPos.z - s.z);
+      // 太遠、太近或面板開啟時淡出，避免遮蔽畫面與對話
+      if (d > MAXD || d < 18 || this.mode) { el.style.opacity = '0'; continue; }
+      const gy = W && W.groundY ? W.groundY(s.x, s.z) : 0;
+      v.set(s.x, gy + 6, s.z).project(camera);
+      if (v.z < -1 || v.z > 1) { el.style.opacity = '0'; continue; }
+      const sx = (v.x * 0.5 + 0.5) * w, sy = (-v.y * 0.5 + 0.5) * h;
+      if (sx < -120 || sx > w + 120 || sy < -80 || sy > h + 80) { el.style.opacity = '0'; continue; }
+      // 夾進安全區：名牌不會壓住頂部 HUD 與邊緣
+      const cx = Math.max(84, Math.min(w - 84, sx));
+      const cy = Math.max(112, Math.min(h - 26, sy));
+      // 左下任務面板所在區域直接淡出，避免蓋住任務提示
+      if (cx < 300 && cy > h - 272) { el.style.opacity = '0'; continue; }
+      el.style.left = cx + 'px';
+      el.style.top = cy + 'px';
+      el.style.opacity = String(Math.min(1, (MAXD - d) / 40, (d - 16) / 12));
+      const dd = el.querySelector('.wl-dist');
+      if (dd) dd.textContent = Math.round(d) + ' m';
+      el.classList.toggle('wl-here', d < s.r);
+    }
   };
 
   /* ---------------- 設置面板 ---------------- */
@@ -675,6 +907,7 @@
       ['H', '操作説明'],
       ['G', '吹哨趕牛／停止趕牛'],
       ['M', '環境音樂 開／關'],
+      ['B', '世界地圖／地段懸浮標示'],
       ['Esc', '關閉當前面板']
     ];
     let html = '<h1>操作説明</h1><div class="sub">CONTROLS</div><div style="margin-top:10px">';
@@ -692,6 +925,10 @@
       '<h2>環境音樂</h2>' +
       '<p>背景是即時合成的草原風聲與輕柔墊音，雨季會轉為細雨聲，不需要額外下載音訊檔。' +
       '可用 <b>M</b> 鍵、右上角的 <b>♫ 音樂</b> 鍵，或「設置 → 環境音樂」隨時開關；音量跟隨「音量」滑塊。</p>' +
+      '<h2>地段與世界地圖</h2>' +
+      '<p>小地圖上的菱形標記代表各個地段，把鼠標移上去會顯示用途與距離；草原上也會浮起地段名牌。' +
+      '按 <b>B</b> 或點小地圖下方的 <b>⤢ 世界地圖</b> 可打開全屏地圖，' +
+      '點「前往」把地段設為導航目標，跟着畫面上的箭頭走即可；抵達後會自動解除，再點一次同一地段也能取消。</p>' +
       '<h2>資產與授權</h2>' +
       '<p>場景模型全部來自 <a href="https://poly.pizza/" target="_blank" rel="noopener">Poly Pizza</a>，' +
       '並逐一以 SHA-256 比對原始下載檔確認來源。' +
@@ -891,15 +1128,20 @@
   };
 
   /* ---------------- 小地圖 ---------------- */
-  UI._renderMinimapBase = function () {
+  /* 底圖預渲染：size 決定解析度，labels 決定是否畫舊式地名。
+   * 小地圖用 200px（帶地名，保留方位感）；世界地圖用 520px 高清版，
+   * 不再重複寫地名，改由菱形標記與名牌呈現，畫面更乾淨。 */
+  UI._renderMinimapBase = function (size, labels) {
+    size = size || 200;
     const cv = document.createElement('canvas');
-    cv.width = 200; cv.height = 200;
+    cv.width = size; cv.height = size;
     const c = cv.getContext('2d');
-    const toMM = (x, z) => [(x + 230) / 460 * 200, (z + 230) / 460 * 200];
+    const toMM = (x, z) => [(x + 230) / 460 * size, (z + 230) / 460 * size];
+    const k = size / 200;                       // 線寬、圓點、文字的縮放倍率
     // 底色（按乾旱度）
-    for (let i = 0; i < 200; i += 4) {
-      for (let j = 0; j < 200; j += 4) {
-        const x = (i / 200) * 460 - 230, z = (j / 200) * 460 - 230;
+    for (let i = 0; i < size; i += 4) {
+      for (let j = 0; j < size; j += 4) {
+        const x = (i / size) * 460 - 230, z = (j / size) * 460 - 230;
         const a = S.aridityAt(x, z);
         let r, g, b;
         if (a < 0.42) { r = lerp3(109, 168, a / 0.42); g = lerp3(127, 148, a / 0.42); b = lerp3(58, 79, a / 0.42); }
@@ -912,10 +1154,10 @@
     // 水塘
     const [wx, wz] = toMM(S.WORLD.water.x, S.WORLD.water.z);
     c.fillStyle = '#2f6f8f';
-    c.beginPath(); c.arc(wx, wz, 11, 0, 6.283); c.fill();
+    c.beginPath(); c.arc(wx, wz, 11 * k, 0, 6.283); c.fill();
     // 道路
     c.strokeStyle = 'rgba(230,200,150,0.55)';
-    c.lineWidth = 1.4;
+    c.lineWidth = 1.4 * k;
     // 簡易：連接站點
     const roads = [
       ['village', 'market'], ['village', 'farm'], ['village', 'well'], ['farm', 'demo'],
@@ -928,22 +1170,26 @@
       const [ax, az] = toMM(A.x, A.z), [bx, bz] = toMM(B.x, B.z);
       c.beginPath(); c.moveTo(ax, az); c.lineTo(bx, bz); c.stroke();
     });
-    // 站點
-    c.font = '7px sans-serif'; c.textAlign = 'center';
-    S.SITES.forEach(s => {
-      const [x, z] = toMM(s.x, s.z);
-      c.fillStyle = 'rgba(255,235,190,0.9)';
-      c.beginPath(); c.arc(x, z, 2.4, 0, 6.283); c.fill();
-      c.fillStyle = 'rgba(255,255,255,0.62)';
-      c.fillText(s.name.slice(0, 4), x, z - 5);
-    });
-    this._mmBase = cv;
+    // 站點圓點與地名（世界地圖用菱形標記＋名牌，故可關閉）
+    if (labels !== false) {
+      c.font = (7 * k) + 'px sans-serif'; c.textAlign = 'center';
+      S.SITES.forEach(s => {
+        const [x, z] = toMM(s.x, s.z);
+        c.fillStyle = 'rgba(255,235,190,0.9)';
+        c.beginPath(); c.arc(x, z, 2.4 * k, 0, 6.283); c.fill();
+        c.fillStyle = 'rgba(255,255,255,0.62)';
+        c.fillText(s.name.slice(0, 4), x, z - 5 * k);
+      });
+    }
+    return cv;
   };
   function lerp3(a, b, t) { return a + (b - a) * Math.max(0, Math.min(1, t)); }
 
   UI.drawMinimap = function (playerPos, yaw, targets) {
     const cv = $('minimap');
     if (!cv || !this._mmBase) return;
+    this._playerPos = playerPos;
+    this.updateSiteMarkers(playerPos);
     const c = cv.getContext('2d');
     c.clearRect(0, 0, 200, 200);
     c.drawImage(this._mmBase, 0, 0);
@@ -1000,6 +1246,7 @@
       '<li>在<b>開放世界</b>裏放牧：村落、南部農田、水井、水源地、牧民營地、防風林、荒漠邊緣、本地市場、村口</li>' +
       '<li>與村民交談推進劇情，每個關鍵節點都有<b>只取材自筆記的選擇題</b>（答錯也有詳細解析）</li>' +
       '<li>按 <b>G</b> 吹哨趕牛，把牛帶回牧民營地的畜欄——這是一款放牛遊戲</li>' +
+      '<li>按 <b>B</b> 打開世界地圖，懸浮查看<b>村落、農田、水井、水源地、本地市場</b>等地段並設定導航目標</li>' +
       '<li>親手練習<b>等高耕作、種植防風林、畜牧季移</b>等筆記裏的耕作與放牧方式</li>' +
       '<li>季節會推進：旱季與雨季交替；多種結局取決於你的選擇與<b>可持續發展指數</b></li>' +
       '</ul>' +

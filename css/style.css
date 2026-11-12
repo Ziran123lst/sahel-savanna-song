@@ -238,7 +238,7 @@ kbd{display:inline-block;background:var(--sun);color:#2a1a10;border-radius:5px;p
 #btn-sprint:active{background:rgba(110,200,120,.95);transform:scale(.94)}
 
 /* ---------- 任務導航箭頭 ---------- */
-#nav-arrow{position:fixed;left:50%;top:50%;z-index:18;pointer-events:none;
+#nav-arrow{position:fixed;left:50%;top:50%;z-index:24;pointer-events:none;
   transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;
   filter:drop-shadow(0 2px 6px rgba(0,0,0,.5))}
 #nav-arrow .na-ico{font-size:46px;line-height:1;color:#ffd477;
@@ -334,4 +334,138 @@ kbd{display:inline-block;background:var(--sun);color:#2a1a10;border-radius:5px;p
 @media (max-width:560px){
   #settings-panel{right:8px;left:8px;width:auto;top:58px;max-height:calc(100vh - 76px)}
   .set-row input[type=range]{width:42vw}
+}
+
+
+/* ================================================================
+   地段懸浮標示（風格致敬生活模擬遊戲；圖形全部為自製 CSS，
+   未使用任何第三方商標圖形或素材）
+   ================================================================ */
+:root{
+  --sims:#57c9b0; --sims-dark:#1f8f7d; --sims-paper:#fbf8f0; --sims-ink:#223b38;
+}
+
+/* 自製菱形地段寶石：旋轉方塊 + 雙層描邊，營造浮動地標感 */
+.sims-gem{display:inline-block;position:relative;width:13px;height:13px;border-radius:3px;
+  transform:rotate(45deg);border:2px solid #fff;
+  background:linear-gradient(135deg,#a8f0de,var(--sims-dark));
+  box-shadow:0 0 0 2px rgba(16,52,47,.45),0 3px 8px rgba(0,0,0,.45);
+  transition:transform .18s ease,box-shadow .18s ease;flex:none}
+.sims-gem::after{content:'';position:absolute;inset:2px;border-radius:1px;
+  background:rgba(255,255,255,.28)}
+
+/* ---------- 小地圖上的地段標記 ---------- */
+#mm-sites{position:absolute;inset:0;pointer-events:none}
+.mm-pin{position:absolute;width:20px;height:20px;margin:-10px 0 0 -10px;
+  display:grid;place-items:center;pointer-events:auto;cursor:pointer;
+  transition:transform .18s ease}
+.mm-pin:hover,.mm-pin.active{transform:scale(1.35);z-index:3}
+.mm-pin:hover .sims-gem,.mm-pin.active .sims-gem{
+  box-shadow:0 0 0 3px rgba(255,255,255,.75),0 4px 12px rgba(0,0,0,.6)}
+.mm-pin .sims-gem{width:11px;height:11px;
+  background:linear-gradient(135deg,#c8f6e9,var(--pin,var(--sims-dark)))}
+.mm-pin.here .sims-gem{box-shadow:0 0 0 3px var(--sun),0 0 12px var(--sun)}
+#mm-expand{pointer-events:auto;display:block;width:100%;margin-top:6px;
+  background:rgba(20,52,47,.9);border:1px solid rgba(140,230,210,.55);color:#dffaf1;
+  border-radius:8px;padding:5px 8px;font-family:var(--font);font-size:11px;cursor:pointer;
+  letter-spacing:1px;transition:.15s}
+#mm-expand:hover{background:var(--sims-dark)}
+
+/* 懸浮資訊卡（統一顯示於小地圖左側，避免 10 個標記互相遮疊） */
+.sims-tip{position:absolute;right:calc(100% + 12px);bottom:26px;width:216px;z-index:5;
+  background:var(--sims-paper);color:var(--sims-ink);border-radius:14px;
+  padding:12px 14px 13px;box-shadow:0 12px 34px rgba(0,0,0,.55);
+  border:1px solid rgba(255,255,255,.8);pointer-events:auto;
+  animation:sims-pop .18s ease-out}
+.sims-tip::after{content:'';position:absolute;right:-7px;bottom:22px;width:14px;height:14px;
+  background:var(--sims-paper);transform:rotate(45deg)}
+.sims-tip .st-top{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.sims-tip .st-kind{font-size:10px;font-weight:700;letter-spacing:1px;color:var(--sims-dark);
+  background:rgba(87,201,176,.18);border-radius:999px;padding:2px 8px;white-space:nowrap}
+.sims-tip h4{font-size:15px;line-height:1.3}
+.sims-tip p{font-size:11.5px;line-height:1.65;opacity:.8;margin:4px 0 8px}
+.sims-tip .st-foot{display:flex;justify-content:space-between;align-items:center;
+  border-top:1px dashed rgba(34,59,56,.22);padding-top:7px;font-size:11px}
+.sims-tip .st-dist{font-weight:700;color:var(--sims-dark)}
+.sims-tip button{background:var(--sims-dark);color:#fff;border:0;border-radius:8px;
+  padding:5px 10px;font-family:var(--font);font-size:11px;cursor:pointer}
+.sims-tip button:hover{background:#146d5f}
+@keyframes sims-pop{from{opacity:0;transform:translateY(6px) scale(.96)}to{opacity:1;transform:none}}
+
+/* ---------- 世界上方的浮空地段標籤 ---------- */
+#world-labels{position:fixed;inset:0;z-index:23;pointer-events:none;overflow:hidden}
+.wl-item{position:absolute;transform:translate(-50%,-100%);display:flex;align-items:center;gap:7px;
+  background:rgba(251,248,240,.94);color:var(--sims-ink);border-radius:999px;
+  padding:4px 11px 4px 6px;white-space:nowrap;font-size:11.5px;font-weight:600;
+  box-shadow:0 4px 14px rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.9);
+  transition:opacity .25s ease}
+.wl-item .sims-gem{width:10px;height:10px;
+  background:linear-gradient(135deg,#c8f6e9,var(--pin,var(--sims-dark)))}
+.wl-item .wl-dist{font-size:10px;font-weight:500;opacity:.6;margin-left:2px}
+.wl-item.wl-here{outline:2px solid var(--sun)}
+
+/* ---------- 全屏世界地圖 ---------- */
+#world-map{position:fixed;inset:0;z-index:70;display:grid;place-items:center;
+  background:rgba(9,24,22,.88);backdrop-filter:blur(7px);padding:18px}
+#world-map.hidden{display:none}
+.wm-shell{width:min(1060px,96vw);max-height:92vh;display:flex;flex-direction:column;
+  background:linear-gradient(180deg,#fdfaf3,#eef4ec);color:var(--sims-ink);
+  border-radius:20px;box-shadow:0 26px 80px rgba(0,0,0,.7);overflow:hidden;
+  border:1px solid rgba(255,255,255,.8);animation:sims-pop .22s ease-out}
+.wm-head{display:flex;justify-content:space-between;align-items:flex-start;
+  padding:18px 24px 14px;border-bottom:1px solid rgba(34,59,56,.12);
+  background:linear-gradient(90deg,rgba(87,201,176,.16),transparent)}
+.wm-kicker{font-size:10px;letter-spacing:3px;color:var(--sims-dark);font-weight:700}
+.wm-head h2{font-size:24px;letter-spacing:2px;margin:2px 0 3px}
+.wm-sub{font-size:12px;opacity:.65}
+.wm-x{background:rgba(34,59,56,.08);border:0;color:var(--sims-ink);width:34px;height:34px;
+  border-radius:50%;font-size:16px;cursor:pointer}
+.wm-x:hover{background:rgba(34,59,56,.2)}
+.wm-body{display:flex;gap:18px;padding:18px 24px 22px;overflow:auto}
+.wm-map{position:relative;flex:none;width:min(46vw,520px);height:min(46vw,520px);
+  border-radius:16px;overflow:hidden;border:3px solid #fff;
+  box-shadow:0 8px 26px rgba(0,0,0,.28);background:#22201a}
+#wm-canvas{width:100%;height:100%;display:block}
+#wm-pins{position:absolute;inset:0}
+.wm-pin{position:absolute;transform:translate(-50%,-50%);display:flex;flex-direction:column;
+  align-items:center;gap:3px;cursor:pointer;transition:transform .16s ease}
+.wm-pin:hover,.wm-pin.active{transform:translate(-50%,-50%) scale(1.18);z-index:4}
+.wm-pin .sims-gem{width:16px;height:16px;
+  background:linear-gradient(135deg,#c8f6e9,var(--pin,var(--sims-dark)))}
+.wm-pin span.wm-pin-name{background:rgba(251,248,240,.94);border-radius:999px;
+  padding:2px 8px;font-size:10.5px;font-weight:700;white-space:nowrap;
+  box-shadow:0 2px 7px rgba(0,0,0,.3)}
+.wm-pin.here span.wm-pin-name{outline:2px solid var(--sun)}
+.wm-side{flex:1;min-width:260px;display:flex;flex-direction:column;min-height:0}
+.wm-side-head{font-size:12px;letter-spacing:2px;opacity:.6;margin-bottom:10px}
+.wm-side-head b{color:var(--sims-dark);font-size:15px}
+#wm-cards{overflow:auto;display:flex;flex-direction:column;gap:8px;padding-right:4px}
+.wm-card{display:flex;gap:11px;align-items:flex-start;background:#fff;border-radius:12px;
+  padding:10px 12px;cursor:pointer;border-left:4px solid var(--pin,var(--sims));
+  box-shadow:0 2px 8px rgba(0,0,0,.08);transition:transform .15s ease,box-shadow .15s ease}
+.wm-card:hover,.wm-card.active{transform:translateX(3px);box-shadow:0 6px 18px rgba(0,0,0,.16)}
+.wm-card .sims-gem{margin-top:3px;width:12px;height:12px;
+  background:linear-gradient(135deg,#c8f6e9,var(--pin,var(--sims-dark)))}
+.wm-card .wc-body{flex:1;min-width:0}
+.wm-card .wc-top{display:flex;justify-content:space-between;align-items:baseline;gap:6px}
+.wm-card h4{font-size:13.5px}
+.wm-card .wc-kind{font-size:10px;color:var(--sims-dark);font-weight:700;letter-spacing:1px}
+.wm-card .wc-dist{font-size:10.5px;opacity:.6;white-space:nowrap}
+.wm-card p{font-size:11px;line-height:1.6;opacity:.72;margin-top:3px}
+.wm-card .wc-here{display:inline-block;font-size:10px;color:#a35a12;background:rgba(232,135,30,.16);
+  border-radius:999px;padding:1px 7px;margin-top:4px}
+.wm-card .wc-go{margin-top:7px;background:var(--sims-dark);color:#fff;border:0;
+  border-radius:7px;padding:4px 10px;font-family:var(--font);font-size:10.5px;cursor:pointer;
+  transition:background .15s ease}
+.wm-card .wc-go:hover{background:#146d5f}
+.wm-card.active .wc-go{background:#146d5f}
+/* 當前導航目標：在世界地圖上以寶石色描邊標示 */
+.wm-pin.nav .wm-pin-name{outline:2px solid var(--sims-dark);box-shadow:0 0 0 3px rgba(31,143,125,.28)}
+.wm-card.nav{box-shadow:0 0 0 2px rgba(31,143,125,.42),0 2px 8px rgba(0,0,0,.08)}
+.wm-card.nav .wc-go{background:#146d5f}
+@media (max-width:860px){
+  .wm-body{flex-direction:column;align-items:center}
+  .wm-map{width:min(80vw,420px);height:min(80vw,420px)}
+  .wm-side{width:100%;min-width:0}
+  #wm-cards{max-height:200px}
 }

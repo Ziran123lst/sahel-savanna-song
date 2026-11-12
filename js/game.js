@@ -689,6 +689,11 @@
     this._asked = new Set();
     window.addEventListener('keydown', e => {
       const code = e.code;
+      // 世界地圖開啟時只接受關閉鍵，其餘按鍵不穿透到遊戲
+      if (UI.mode === 'worldmap') {
+        if (code === 'Escape' || code === 'KeyB') { e.preventDefault(); UI.closeWorldMap(); }
+        return;
+      }
       if (code === 'KeyF' || code === 'KeyE') {
         this.handleInteractInput(e);
       } else if (code === 'Tab' || code === 'KeyJ') {
@@ -704,6 +709,8 @@
         if (!UI.mode && this.started) this.toggleHerd();
       } else if (code === 'KeyM') {
         if (!UI.mode) UI.toggleMusic();
+      } else if (code === 'KeyB') {
+        if (this.started) UI.toggleWorldMap();
       } else if (code === 'Escape') {
         if (UI.mode === 'overlay') UI.closeOverlay();
         else if (UI.mode === 'dialogue') { UI.hideDialogue(); this._pendingNext = false; this._talkCompletesStep = false; this._talkGuard = null; }
@@ -805,17 +812,33 @@
           const spec = NPCS.find(n => n.id === step.npc);
           if (spec) targets.push({ x: spec.x, z: spec.z });
         }
+        // 世界地圖／小地圖設定的自訂導航目標：抵達後自動清除，避免箭頭一直指着
+        if (this._mapTarget) {
+          const md = Math.sqrt(dist2(Player.pos.x, Player.pos.z, this._mapTarget.x, this._mapTarget.z));
+          if (md < 14) {
+            UI.toast('🧭 已抵達「' + this._mapTarget.name + '」', 'good');
+            this._mapTarget = null;
+          } else {
+            targets.push(this._mapTarget);
+          }
+        }
         UI.drawMinimap(Player.pos, Player.yaw, targets);
 
         // 任務導航箭頭：把當前優先目標投影到屏幕，始終指向任務方向
         if (UI.mode) {
           UI.hideNavArrow();
         } else if (targets.length) {
-          // 選取離玩家最近的目標作為導航方向
-          let t = targets[0], bd = Infinity;
-          for (const tt of targets) {
-            const d = dist2(Player.pos.x, Player.pos.z, tt.x, tt.z);
-            if (d < bd) { bd = d; t = tt; }
+          // 玩家在世界地圖自訂的導航目標優先；否則選取離玩家最近的目標
+          let t, bd;
+          if (this._mapTarget) {
+            t = this._mapTarget;
+            bd = dist2(Player.pos.x, Player.pos.z, t.x, t.z);
+          } else {
+            t = targets[0]; bd = Infinity;
+            for (const tt of targets) {
+              const d = dist2(Player.pos.x, Player.pos.z, tt.x, tt.z);
+              if (d < bd) { bd = d; t = tt; }
+            }
           }
           const dist = Math.sqrt(bd);
           if (dist < 14) { UI.hideNavArrow(); }   // 已抵達：隱藏
@@ -833,6 +856,11 @@
         } else {
           UI.hideNavArrow();
         }
+      }
+      // 世界上方的浮空地段標籤：每幀把 3D 地段座標投影到屏幕
+      // （對話／世界地圖等面板開啟時，標籤會在函式內自動淡出）
+      if (this.started && UI.updateWorldLabels) {
+        UI.updateWorldLabels(Player.pos, World.camera);
       }
       World.renderer.render(World.scene, World.camera);
     };

@@ -232,6 +232,7 @@
     $('btn-view').onclick = () => this.game.toggleView();
     $('btn-help').onclick = () => this.help();
     $('btn-settings').onclick = () => this.openSettings();
+    $('btn-inventory').onclick = () => this.inventory();
 
     const bm = $('btn-music');
     if (bm) bm.onclick = () => this.toggleMusic();
@@ -895,6 +896,29 @@
         if (a !== 'close') this._renderMarket();   // 交易後刷新金額與持有
       };
     });
+  };
+
+  /* ---------------- 背包 ---------------- */
+  // 按 I 或 HUD「🎒 背包」打開。列出資源與從本地市場商店買來的東西。
+  UI.inventory = function () {
+    const g = this.game, st = g.state;
+    const cell = (ic, name, val, note) =>
+      '<div class="inv-cell"><span class="ic">' + ic + '</span><b>' + name + '</b>' +
+      '<i>' + val + '</i>' + (note ? '<span class="inv-note">' + note + '</span>' : '') + '</div>';
+    let h = '<h1>背包</h1>' +
+      '<div class="sub">INVENTORY · 你擁有的資源與從商店買來的東西</div>' +
+      '<h2>資源</h2><div class="inv-grid">' +
+      cell('🐄', '肉牛', (st.cattle || 0) + ' 頭', '可在本地市場賣出') +
+      cell('🌾', '糧食', Math.round(st.food) + ' kg', '家裏的口糧與小米') +
+      cell('🪙', '現金', Math.round(st.cash).toLocaleString('en-US') + ' F', '西非法郎，用於買賣') +
+      cell('🟤', '土壤肥力', Math.round(st.fertility) + ' / 100', '自家田的養分') +
+      '</div>' +
+      '<h2>商店物品</h2><div class="inv-grid">' +
+      cell('🌱', '樹苗種子', (st.seeds || 0) + ' 份', '耕地耕田可播種；防風林可領苗') +
+      cell('🧪', '肥料', '已施用 ' + (st.fertBought || 0) + ' 份', '買下即施用，提升肥力（5.8 代價）') +
+      cell('📘', '課堂筆記', st.notebook ? '已擁有' : '未擁有', '《C5 農業與饑荒》全部知識點') +
+      '</div>';
+    this.overlay(h, [{ label: '關閉', ghost: true, onClick: () => this.closeOverlay() }]);
   };
 
   /* ---------------- 章節引言 ---------------- */

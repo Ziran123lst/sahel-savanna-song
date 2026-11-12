@@ -23,7 +23,7 @@
       notes: new Set(),
       quizTotal: 0, quizCorrect: 0,
       zai: 0, stones: 0, trees: 0,
-      cattle: 5, seeds: 0, notebook: false
+      cattle: 5, seeds: 0, notebook: false, fertBought: 0
     },
     flags: {},
     actIndex: 0, stepIndex: 0, actState: {},
@@ -521,6 +521,7 @@
     if (zone && zone.id === 'mare') { this.drawWater(70); return; }
     if (zone && zone.id === 'market') { UI.market(); return; }
     if (zone && zone.id === 'nursery') { this.getSeedlings(); return; }
+    if (zone && (zone.id === 'farm' || zone.id === 'demo')) { this.tillField(); return; }
     // 5) 任務點（小遊戲 / 到達點）
     if (this.taskPoint) {
       const tp = this.taskPoint;
@@ -582,6 +583,7 @@
   Game.buyFertilizer = function () {
     if (this.state.cash < 300) { UI.toast('現金不夠，先去賣點糧食或牛。', 'bad'); return; }
     this.state.cash -= 300;
+    this.state.fertBought = (this.state.fertBought || 0) + 1;
     this.state.fertility = clamp(this.state.fertility + 12, 0, 100);
     this.state.sustain = clamp(this.state.sustain + 1, 0, 100);
     UI.toast('買入並施用肥料　土壤肥力＋12（代價見 5.8）', 'good');
@@ -603,6 +605,27 @@
     this.state.notebook = true;
     S.NOTES.forEach(n => this.state.notes.add(n.id));
     UI.toast('買下《C5 農業與饑荒》課堂筆記　已收集全部知識點', 'good');
+    this.syncHUD();
+  };
+
+  /* ================= 耕地耕作（farm / demo） ================= */
+  // 在南部農田（farm）或南部耕地（demo）按 F「耕田」：有樹苗種子則翻土＋播種，
+  // 否則只翻鬆土壤；兩者都提升自家田土壤肥力（耕作釋放養分、翻土保墒）。
+  Game.tillField = function () {
+    if (this._tillCD && Date.now() - this._tillCD < 8000) {
+      UI.toast('田剛耕過，讓土歇一會兒。', 'bad'); return;
+    }
+    this._tillCD = Date.now();
+    const st = this.state;
+    if ((st.seeds || 0) > 0) {
+      st.seeds -= 1;
+      st.fertility = clamp(st.fertility + 10, 0, 100);
+      st.sustain = clamp(st.sustain + 0.6, 0, 100);
+      UI.toast('翻土並播下種子（種子－1，肥力＋10）。歇一段日子讓作物長。', 'good');
+    } else {
+      st.fertility = clamp(st.fertility + 4, 0, 100);
+      UI.toast('翻鬆了土壤（肥力＋4）。買樹苗種子在本地市場的商店，耕田時可一併播種。', 'good');
+    }
     this.syncHUD();
   };
 
@@ -686,6 +709,7 @@
         else if (zn && zn.id === 'mare') prompt = '在水源地打水';
         else if (zn && zn.id === 'market') prompt = '集市與商店';
         else if (zn && zn.id === 'nursery') prompt = '領取防風林樹苗';
+        else if (zn && (zn.id === 'farm' || zn.id === 'demo')) prompt = '耕田';
       }
     }
     UI.prompt(UI.mode ? null : prompt);
@@ -747,6 +771,8 @@
         if (UI.mode) { if (UI.mode === 'overlay') UI.closeOverlay(); } else UI.journal();
       } else if (code === 'KeyN') {
         if (UI.mode) { if (UI.mode === 'overlay') UI.closeOverlay(); } else UI.notes();
+      } else if (code === 'KeyI') {
+        if (UI.mode) { if (UI.mode === 'overlay') UI.closeOverlay(); } else UI.inventory();
       } else if (code === 'KeyH') {
         if (UI.mode) { if (UI.mode === 'overlay') UI.closeOverlay(); } else UI.help();
       } else if (code === 'KeyV') {

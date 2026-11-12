@@ -693,6 +693,8 @@
         if (UI.mode) { if (UI.mode === 'overlay') UI.closeOverlay(); } else UI.help();
       } else if (code === 'KeyV') {
         if (!UI.mode) this.toggleView();
+      } else if (code === 'KeyG') {
+        if (!UI.mode && this.started) this.toggleHerd();
       } else if (code === 'Escape') {
         if (UI.mode === 'overlay') UI.closeOverlay();
         else if (UI.mode === 'dialogue') { UI.hideDialogue(); this._pendingNext = false; this._talkCompletesStep = false; this._talkGuard = null; }
@@ -714,7 +716,38 @@
         // 兼容沒有 Pointer Events 的舊 WebView，避免與 pointerup 重複觸發。
         if (!window.PointerEvent) ba.addEventListener('click', e => this.handleInteractInput(e));
       }
+      const bh = document.getElementById('btn-herd');
+      if (bh) bh.addEventListener('click', () => {
+        if (this.started && !UI.mode) this.toggleHerd();
+      });
     };
+
+  /* ================= 趕牛玩法 ================= */
+  Game.toggleHerd = function () {
+    const st = World.toggleHerd();
+    UI.toast(st.active
+      ? '🐄 吹哨趕牛！附近的牛會跟着你，把牠們帶到牧民營地的畜欄。'
+      : '🐄 停止趕牛，牛羣恢復自由吃草。', 'good');
+    UI.SFX.talk();
+    this.updateHerdHUD();
+  };
+
+  Game.updateHerdHUD = function () {
+    if (!World.herdStatus) return;
+    const st = World.herdStatus();
+    const sig = [st.active, st.following, st.penned, st.done].join('|');
+    if (sig !== this._herdSig) { this._herdSig = sig; UI.setHerd(st); }
+    if (st.penned >= st.goal && !st.done) {
+      World.herdDone = true;
+      this.state.cash += 2000;
+      this.state.food += 80;
+      this.state.sustain = clamp(this.state.sustain + 3, 0, 100);
+      this.syncHUD();
+      UI.toast('🎉 牛羣歸欄！家計與可持續發展指數提升。', 'good');
+      UI.SFX.good();
+      this.updateHerdHUD();
+    }
+  };
 
   Game.toggleView = function () {
     Player.toggleView();
@@ -734,11 +767,16 @@
       Player.update(dt, World.camera);
       NPCs.update(dt, Player.pos, !UI.mode);
       World.update(dt, Player.pos);
-      if (this.started) this.updateWorld(dt);
+      if (this.started) { this.updateWorld(dt); this.updateHerdHUD(); }
       if (this.started) {
         const targets = [];
         this.probes.forEach(p => { if (!p.done) targets.push(p); });
         if (this.taskPoint) targets.push(this.taskPoint);
+        // 趕牛時把畜欄標上小地圖與導航箭頭，讓玩家知道往哪裏趕
+        if (World.herdMode && !World.herdDone && World.herdStatus) {
+          const hs = World.herdStatus();
+          if (hs) targets.push({ x: hs.penX, z: hs.penZ });
+        }
         const step = this.currentStep();
         if (step && step.k === 'talk') {
           const spec = NPCS.find(n => n.id === step.npc);

@@ -762,6 +762,47 @@
     node.updateMatrixWorld(true);
   }
 
+  /* ============ 趕牛玩法 ============
+   * 玩家吹哨（G）後，附近牛會跟隨；走進牧民營地畜欄範圍即「歸欄」。
+   * 純世界模擬，不寫入任務狀態，避免與既有 DSE 主線耦合。 */
+  const campSite = SITES.find(s => s.id === 'camp') || { x: 128, z: -118 };
+  const HERD = {
+    penX: campSite.x - 14, penZ: campSite.z + 8, penR: 16,
+    callRadius: 55, followStop: 5.0, followSpeed: 1.7, goal: 6
+  };
+  World.herdMode = false;
+  World.herdDone = false;
+
+  World.toggleHerd = function () {
+    this.herdMode = !this.herdMode;
+    // 中途停止（尚未完成歸欄）：讓已跟隨/已進欄的牛全部恢復自由吃草，
+    // 與提示文案一致，也方便玩家重新吹哨再來一次。完成獎勵後則保留欄內牛羣。
+    if (!this.herdMode && !this.herdDone) {
+      for (const a of (this._animalActors || [])) {
+        if (a.herdState === 'penned' || a.herdState === 'follow') {
+          a.herdState = 'none';
+          a.wanderState = 'rest';
+          a.wanderTimer = 0.8 + Math.random() * 2.0;
+        }
+      }
+    }
+    return this.herdStatus();
+  };
+
+  World.herdStatus = function () {
+    const actors = this._animalActors || [];
+    let following = 0, penned = 0;
+    for (const a of actors) {
+      if (a.herdState === 'penned') penned++;
+      else if (a.herdState === 'follow') following++;
+    }
+    return {
+      active: this.herdMode, following, penned,
+      goal: HERD.goal, total: actors.length, done: this.herdDone,
+      penX: HERD.penX, penZ: HERD.penZ
+    };
+  };
+
   function animalClip(animations, names) {
     if (!animations || !animations.length) return null;
     for (const name of names) {
@@ -890,6 +931,8 @@
           wanderTimer: canWander ? 1.5 + Math.random() * 4.0 : Infinity,
           wanderSpeed: 0.55 + Math.random() * 0.3,
           radius: canWander ? 0.65 : 0,
+          herdState: 'none',
+          herdSlot: (World._animalActors.length % 10) * (6.283 / 10),
           modelPath: path
         };
         m.userData.animalActor = actor;
@@ -1085,51 +1128,100 @@
     this.markers.slice().forEach(m => this.removeMarker(m));
   };
 
-  function updateCowActors(dt) {
-    const actors = World._animalActors || [];
-    for (const actor of actors) {
-      const c = actor.group;
-      actor.wanderTimer -= dt;
-      c.userData.phase += dt * (actor.wanderState === 'walk' ? 1.4 : 0.6);
-      c.userData.bob += dt * 1.4;
-
-      if (actor.wanderState === 'rest') {
-        if (actor.wanderTimer <= 0) chooseCowTarget(actor);
-      } else if (actor.wanderState === 'walk') {
-        const dx = actor.targetX - c.position.x;
-        const dz = actor.targetZ - c.position.z;
-        const distance = Math.hypot(dx, dz);
-        if (distance < 0.75 || actor.wanderTimer <= 0) {
+  // 自由漫遊：休息 ↔ 走向隨機目標點。
+  function wanderFree(actor, dt) {
+    const c = actor.group;
+    actor.wanderTimer -= dt;
+    if (actor.wanderState === 'rest') {
+      if (actor.wanderTimer <= 0) chooseCowTarget(actor);
+    } else if (actor.wanderState === 'walk') {
+      const dx = actor.targetX - c.position.x, dz = actor.targetZ - c.position.z;
+      const distance = Math.hypot(dx, dz);
+      if (distance < 0.75 || actor.wanderTimer <= 0) {
+        actor.wanderState = 'rest';
+        actor.wanderTimer = 1.5 + Math.random() * 4.0;
+        setAnimalAction(actor, false);
+      } else {
+        let turn = Math.atan2(dx, dz) - c.rotation.y;
+        while (turn > Math.PI) turn -= Math.PI * 2;
+        while (turn < -Math.PI) turn += Math.PI * 2;
+        c.rotation.y += clamp(turn, -dt * 1.8, dt * 1.8);
+        const step = Math.min(distance, actor.wanderSpeed * dt);
+        const safe = World.clampToWorld(
+          c.position.x + Math.sin(c.rotation.y) * step,
+          c.position.z + Math.cos(c.rotation.y) * step
+        );
+        const resolved = World.collide(safe.x, safe.z, actor.radius);
+        if (Math.hypot(resolved.x - c.position.x, resolved.z - c.position.z) < 0.001) {
           actor.wanderState = 'rest';
-          actor.wanderTimer = 1.5 + Math.random() * 4.0;
+          actor.wanderTimer = 0.8 + Math.random() * 1.6;
           setAnimalAction(actor, false);
         } else {
-          const desiredYaw = Math.atan2(dx, dz);
-          let turn = desiredYaw - c.rotation.y;
-          while (turn > Math.PI) turn -= Math.PI * 2;
-          while (turn < -Math.PI) turn += Math.PI * 2;
-          c.rotation.y += clamp(turn, -dt * 1.8, dt * 1.8);
-          const step = Math.min(distance, actor.wanderSpeed * dt);
-          const nx = c.position.x + Math.sin(c.rotation.y) * step;
-          const nz = c.position.z + Math.cos(c.rotation.y) * step;
-          const safe = World.clampToWorld(nx, nz);
-          const resolved = World.collide(safe.x, safe.z, actor.radius);
-          if (Math.hypot(resolved.x - c.position.x, resolved.z - c.position.z) < 0.001) {
-            actor.wanderState = 'rest';
-            actor.wanderTimer = 0.8 + Math.random() * 1.6;
-            setAnimalAction(actor, false);
-          } else {
-            c.position.x = resolved.x;
-            c.position.z = resolved.z;
-          }
+          c.position.x = resolved.x;
+          c.position.z = resolved.z;
         }
       }
+    }
+  }
 
-      if (actor.wanderState !== 'static') {
-        c.userData.groundY = World.groundY(c.position.x, c.position.z);
-        c.position.y = c.userData.groundY + (c.userData.groundOffset || 0)
-          + Math.abs(Math.sin(c.userData.bob)) * (actor.wanderState === 'walk' ? 0.025 : 0.04);
+  function updateCowActors(dt, playerPos) {
+    const actors = World._animalActors || [];
+    const herding = !!World.herdMode;
+    for (const actor of actors) {
+      const c = actor.group;
+      c.userData.phase += dt * (actor.herdState === 'follow' ? 1.4 : 0.6);
+      c.userData.bob += dt * 1.4;
+
+      if (actor.herdState === 'penned') {
+        setAnimalAction(actor, false);           // 已歸欄：留在欄內吃草
+      } else if (herding && playerPos) {
+        const dPlayer = Math.hypot(c.position.x - playerPos.x, c.position.z - playerPos.z);
+        const dPen = Math.hypot(c.position.x - HERD.penX, c.position.z - HERD.penZ);
+        // 必須是「跟着玩家」走進欄內才算歸欄：避免玩家遠遠站着，
+        // 牛一碰到欄邊界就原地停下，看起來像卡在欄外。
+        if (dPen < HERD.penR && dPlayer < HERD.followStop * 1.6) {
+          actor.herdState = 'penned';            // 趕進畜欄
+          actor.wanderState = 'rest';
+          setAnimalAction(actor, false);
+        } else if (dPlayer < HERD.callRadius || actor.herdState === 'follow') {
+          // 每頭牛佔一個圍繞玩家的位置，避免全部疊在一起
+          const tx = playerPos.x + Math.cos(actor.herdSlot) * HERD.followStop;
+          const tz = playerPos.z + Math.sin(actor.herdSlot) * HERD.followStop;
+          const d = Math.hypot(tx - c.position.x, tz - c.position.z);
+          actor.herdState = 'follow';
+          if (d > 1.0) {
+            let turn = Math.atan2(tx - c.position.x, tz - c.position.z) - c.rotation.y;
+            while (turn > Math.PI) turn -= Math.PI * 2;
+            while (turn < -Math.PI) turn += Math.PI * 2;
+            c.rotation.y += clamp(turn, -dt * 2.4, dt * 2.4);
+            const step = Math.min(d, HERD.followSpeed * dt);
+            const safe = World.clampToWorld(
+              c.position.x + Math.sin(c.rotation.y) * step,
+              c.position.z + Math.cos(c.rotation.y) * step
+            );
+            const resolved = World.collide(safe.x, safe.z, actor.radius);
+            c.position.x = resolved.x;
+            c.position.z = resolved.z;
+            setAnimalAction(actor, true);
+          } else {
+            setAnimalAction(actor, false);
+          }
+        } else {
+          wanderFree(actor, dt);                 // 太遠，吹哨叫不到
+        }
+      } else {
+        if (actor.herdState === 'follow') {
+          actor.herdState = 'none';
+          actor.wanderState = 'rest';
+          actor.wanderTimer = 0.8 + Math.random() * 2.0;
+        }
+        wanderFree(actor, dt);
       }
+
+      // 移動後重新貼合地形，避免斜坡上懸空或陷入地面
+      c.userData.groundY = World.groundY(c.position.x, c.position.z);
+      c.position.y = c.userData.groundY + (c.userData.groundOffset || 0)
+        + Math.abs(Math.sin(c.userData.bob)) * (actor.herdState === 'follow' ? 0.025 : 0.04);
     }
   }
 
@@ -1150,7 +1242,7 @@
 
     // 牛模型使用獨立 Mixer 播放 Idle/Walk；其他牲畜保留輕微呼吸搖擺。
     if (this._animalMixers) this._animalMixers.forEach(mixer => mixer.update(dt));
-    updateCowActors(dt);
+    updateCowActors(dt, playerPos);
     if (this._animals) {
       for (const c of this._animals.children) {
         if (c.userData.canWander) continue;

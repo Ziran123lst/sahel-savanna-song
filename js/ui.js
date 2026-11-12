@@ -166,6 +166,19 @@
 
   UI.isSettingsOpen = function () { return !!this._settingsOpen; };
 
+  /* 趕牛進度條：只在吹哨趕牛時顯示 */
+  UI.setHerd = function (st) {
+    const el = $('herd-chip');
+    if (!el) return;
+    if (!st || !st.active) { el.classList.add('hidden'); return; }
+    el.classList.remove('hidden');
+    const b = $('herd-count');
+    const n = Math.min(st.penned, st.goal);
+    if (b) b.textContent = st.done
+      ? '✅ 牛羣已歸欄 ' + n + '/' + st.goal
+      : '跟隨 ' + st.following + ' · 歸欄 ' + n + '/' + st.goal;
+  };
+
   /* 任務導航箭頭：根據目標在屏幕上的投影，指向並提示距離。
    * sx,sy 為目標屏幕座標；onScreen 表示目標是否落在可視範圍內 */
   UI.navArrow = function (sx, sy, onScreen, distText) {
@@ -464,6 +477,7 @@
       ['Tab 或 J', '任務日誌'],
       ['N', '地理筆記'],
       ['H', '操作説明'],
+      ['G', '吹哨趕牛／停止趕牛'],
       ['Esc', '關閉當前面板']
     ];
     let html = '<h1>操作説明</h1><div class="sub">CONTROLS</div><div style="margin-top:10px">';
@@ -473,6 +487,9 @@
       '你要在<b>修復土地</b>、<b>維持家計</b>與<b>是否離開</b>之間做決定。</p>' +
       '<p style="margin-top:10px">所有題目按<b>香港中學文憑試（DSE）地理科</b>的課程框架設計：' +
       '旱地環境、荒漠化、農業與糧食安全、人口遷移、可持續發展。答錯也會記下解析——這是學習的一部分。</p>' +
+      '<h2>放牛玩法</h2>' +
+      '<p>按 <b>G</b> 吹哨，附近的牛會跟着你走；把牠們帶到<b>牧民營地的畜欄</b>，' +
+      '歸欄 6 頭即可獲得家計與可持續發展指數獎勵。再按一次 <b>G</b> 停止趕牛。</p>' +
       '<h2>資產與授權</h2>' +
       '<p>場景中的部分開放模型來自 <a href="https://poly.pizza/" target="_blank" rel="noopener">Poly Pizza</a>：Quaternius 的模型採 CC0；madtrollstudio 與 Poly by Google 的模型採 CC BY 3.0。' +
       '完整作者、來源、授權及修改記錄請參閱本遊戲倉庫的 <code>vendor/models/ATTRIBUTION.json</code>。</p>';

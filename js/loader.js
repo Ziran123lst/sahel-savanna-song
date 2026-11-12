@@ -8,7 +8,7 @@
 
   // 版本號：每次發佈都會改變，強制瀏覽器重新拉取最新 JS 與模型，
   // 避免 GitHub Pages / 瀏覽器緩存導致“改動不生效”。
-  const GAME_VER = 'v20261110k';
+  const GAME_VER = 'v20261110l';
   const vurl = p => p + (p.indexOf('?') >= 0 ? '&' : '?') + 'v=' + GAME_VER;
 
   const Models = {

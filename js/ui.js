@@ -1211,7 +1211,9 @@
     const [px, pz] = toMM(playerPos.x, playerPos.z);
     c.save();
     c.translate(px, pz);
-    c.rotate(-yaw + Math.PI);
+    // 玩家前進向量為 (mx,mz)=(-sin yaw,-cos yaw)，地圖上 +x 右、+z 下，
+    // 三角形尖端預設朝 -y（上），旋轉 -yaw 才會指向玩家前進方向（指南針式）。
+    c.rotate(-yaw);
     c.fillStyle = '#e8871e';
     c.beginPath();
     c.moveTo(0, -5); c.lineTo(3.4, 4); c.lineTo(0, 2); c.lineTo(-3.4, 4);

@@ -22,7 +22,8 @@
       day: 1, season: 'dry',
       notes: new Set(),
       quizTotal: 0, quizCorrect: 0,
-      zai: 0, stones: 0, trees: 0
+      zai: 0, stones: 0, trees: 0,
+      cattle: 5, seeds: 0, notebook: false
     },
     flags: {},
     actIndex: 0, stepIndex: 0, actState: {},
@@ -518,7 +519,7 @@
     const zone = S.zoneAt(pos.x, pos.z);
     if (zone && zone.id === 'well') { this.drawWater(90); return; }
     if (zone && zone.id === 'mare') { this.drawWater(70); return; }
-    if (zone && zone.id === 'market') { this.sellGrain(); return; }
+    if (zone && zone.id === 'market') { UI.market(); return; }
     if (zone && zone.id === 'nursery') { this.getSeedlings(); return; }
     // 5) 任務點（小遊戲 / 到達點）
     if (this.taskPoint) {
@@ -552,12 +553,57 @@
 
   Game.getSeedlings = function () {
     if (this._seedCD && Date.now() - this._seedCD < 25000) { UI.toast('今天已經領過樹苗了。防風林要慢慢長。', 'bad'); return; }
-    if (this.state.cash < 500) { UI.toast('種防風林要先有本錢。你先去本地市場賣點糧食。', 'bad'); return; }
+    // 有種子就免費領樹苗；否則要先付 500 F（在本地市場的商店買種子可省下這筆錢）
+    if ((this.state.seeds || 0) > 0) {
+      this.state.seeds -= 1;
+      this._seedCD = Date.now();
+      this.syncHUD();
+      UI.toast('用種子領取 3 株樹苗（種子－1）。現在把它們種成防風林。', 'good');
+      setTimeout(() => this.runMini('tree', 3, () => { }, false), 320);
+      return;
+    }
+    if (this.state.cash < 500) { UI.toast('種防風林要先有本錢或種子。你先去本地市場賣點糧食，或買種子。', 'bad'); return; }
     this._seedCD = Date.now();
     this.state.cash -= 500;
     this.syncHUD();
     UI.toast('領取 3 株樹苗（－500 F）。現在把它們種成防風林。', 'good');
     setTimeout(() => this.runMini('tree', 3, () => { }, false), 320);
+  };
+
+  /* ================= 本地市場：集市（賣）與商店（買） ================= */
+  Game.sellCattle = function () {
+    if ((this.state.cattle || 0) < 1) { UI.toast('沒有可賣的牛了。', 'bad'); return; }
+    this.state.cattle -= 1;
+    this.state.cash += 850;
+    UI.toast('賣出 1 頭肉牛　＋850 F', 'good');
+    this.syncHUD();
+  };
+
+  Game.buyFertilizer = function () {
+    if (this.state.cash < 300) { UI.toast('現金不夠，先去賣點糧食或牛。', 'bad'); return; }
+    this.state.cash -= 300;
+    this.state.fertility = clamp(this.state.fertility + 12, 0, 100);
+    this.state.sustain = clamp(this.state.sustain + 1, 0, 100);
+    UI.toast('買入並施用肥料　土壤肥力＋12（代價見 5.8）', 'good');
+    this.syncHUD();
+  };
+
+  Game.buySeeds = function () {
+    if (this.state.cash < 200) { UI.toast('現金不夠，先去賣點糧食或牛。', 'bad'); return; }
+    this.state.cash -= 200;
+    this.state.seeds = (this.state.seeds || 0) + 5;
+    UI.toast('買入 5 份樹苗種子（種子＋5）', 'good');
+    this.syncHUD();
+  };
+
+  Game.buyNotebook = function () {
+    if (this.state.notebook) { UI.toast('你已經有一本課堂筆記了。', 'bad'); return; }
+    if (this.state.cash < 500) { UI.toast('現金不夠，先去賣點糧食或牛。', 'bad'); return; }
+    this.state.cash -= 500;
+    this.state.notebook = true;
+    S.NOTES.forEach(n => this.state.notes.add(n.id));
+    UI.toast('買下《C5 農業與饑荒》課堂筆記　已收集全部知識點', 'good');
+    this.syncHUD();
   };
 
   /* ================= 季節與事件 ================= */
@@ -638,7 +684,7 @@
         const zn = S.zoneAt(Player.pos.x, Player.pos.z);
         if (zn && zn.id === 'well') prompt = '在水井打水';
         else if (zn && zn.id === 'mare') prompt = '在水源地打水';
-        else if (zn && zn.id === 'market') prompt = '賣糧';
+        else if (zn && zn.id === 'market') prompt = '集市與商店';
         else if (zn && zn.id === 'nursery') prompt = '領取防風林樹苗';
       }
     }

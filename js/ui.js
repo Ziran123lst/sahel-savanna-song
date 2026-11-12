@@ -834,6 +834,69 @@
     if (cb) { try { cb(); } catch (e) { console.error('[UI] overlay onClose 失敗：', e); } }
   };
 
+  /* ---------------- 本地市場：集市與商店 ---------------- */
+  // 在本地市場（market 區域）按 F 打開。集市的「賣」與商店的「買」放在同一面板，
+  // 形成「賣糧／賣牛 → 賺法郎 → 買肥料／種子／課堂筆記」的經濟循環。
+  UI.market = function () {
+    if (!this.game) return;
+    this.mode = 'overlay';
+    this._overlayOnClose = null;
+    this._renderMarket();
+    const ov = $('overlay');
+    ov.classList.remove('hidden');
+    ov.scrollTop = 0;
+    const p = $('ov-panel');
+    if (p) p.scrollTop = 0;
+  };
+
+  UI._renderMarket = function () {
+    const g = this.game, st = g.state;
+    const own = (label, v) => '<span class="mi-own">' + label + ' ' + v + '</span>';
+    let h = '<h1>本地市場 · 集市與商店</h1>' +
+      '<div class="sub">MARKET · 賺來的法郎（F）可以買種子、肥料，也別忘了買一本課堂筆記溫習</div>' +
+      '<div class="mkt-sec"><h2>集市（賣）</h2>';
+    h += '<div class="mkt-item"><div class="mi-l"><b>賣糧食</b>' +
+      '<span>小米 · 62 F / kg（一次賣出一批，會留作家裏口糧）</span></div>' +
+      '<div class="mi-r">' + own('現有', Math.round(st.food) + ' kg') +
+      '<button class="mkt-buy" data-act="sell-grain">賣出</button></div></div>';
+    h += '<div class="mkt-item"><div class="mi-l"><b>賣牛</b>' +
+      '<span>肉牛 · 850 F / 頭</span></div>' +
+      '<div class="mi-r">' + own('可售', (st.cattle || 0) + ' 頭') +
+      '<button class="mkt-buy" data-act="sell-cattle">賣出</button></div></div>';
+    h += '</div><div class="mkt-sec"><h2>商店（買）</h2>';
+    h += '<div class="mkt-item"><div class="mi-l"><b>肥料</b>' +
+      '<span>施加化學肥料，提升土壤肥力（代價見 5.8 使用農業科技的代價）</span></div>' +
+      '<div class="mi-r"><span class="mi-price">300 F</span>' +
+      '<button class="mkt-buy" data-act="buy-fert">購買</button></div></div>';
+    h += '<div class="mkt-item"><div class="mi-l"><b>種子</b>' +
+      '<span>樹苗種子 5 份；有種子時在防風林可免費領樹苗</span></div>' +
+      '<div class="mi-r"><span class="mi-price">200 F</span>' +
+      '<button class="mkt-buy" data-act="buy-seeds">購買</button></div></div>';
+    h += '<div class="mkt-item"><div class="mi-l"><b>地理筆記</b>' +
+      '<span>《C5 農業與饑荒》課堂筆記一本，買下即可溫習全部知識點</span></div>' +
+      '<div class="mi-r">' + (st.notebook
+        ? '<span class="mi-own">已擁有</span>'
+        : '<span class="mi-price">500 F</span><button class="mkt-buy" data-act="buy-note">購買</button>') +
+      '</div></div>';
+    h += '</div>';
+    h += '<div class="mkt-foot"><span>現金 <b>' + Math.round(st.cash).toLocaleString('en-US') + ' F</b></span>' +
+      '<button class="mkt-close" data-act="close">離開市場</button></div>';
+    const p = $('ov-panel');
+    p.innerHTML = h;
+    p.querySelectorAll('[data-act]').forEach(b => {
+      b.onclick = () => {
+        const a = b.getAttribute('data-act');
+        if (a === 'sell-grain') g.sellGrain();
+        else if (a === 'sell-cattle') g.sellCattle();
+        else if (a === 'buy-fert') g.buyFertilizer();
+        else if (a === 'buy-seeds') g.buySeeds();
+        else if (a === 'buy-note') g.buyNotebook();
+        else if (a === 'close') { this.closeOverlay(); return; }
+        if (a !== 'close') this._renderMarket();   // 交易後刷新金額與持有
+      };
+    });
+  };
+
   /* ---------------- 章節引言 ---------------- */
   UI.chapterCard = function (act, onStart) {
     const html =

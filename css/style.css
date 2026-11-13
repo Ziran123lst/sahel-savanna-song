@@ -60,10 +60,11 @@ canvas#scene{position:fixed;inset:0;width:100%;height:100%;display:block}
   background:#22201a;box-shadow:0 6px 22px rgba(0,0,0,.5);display:block}
 .mm-label{text-align:center;font-size:11px;opacity:.75;margin-top:4px;letter-spacing:2px}
 
-/* ---------- 目標（位於左上角統計欄下方，跟隨 hud-left 的文檔流） ---------- */
-#objective{position:static;align-self:flex-start;max-width:min(330px,calc(100vw - 28px));margin-top:6px;
-  background:var(--ui-bg);border:1px solid var(--ui-br);border-left:4px solid var(--sun);
-  border-radius:10px;padding:10px 14px;backdrop-filter:blur(6px)}
+/* ---------- 目標（位於右上角按鈕區下方，靠右對齊，跟隨 hud-right 的文檔流） ---------- */
+#objective{position:static;flex:0 0 100%;box-sizing:border-box;max-width:min(360px,calc(100vw - 28px));
+  display:flex;flex-direction:column;align-items:flex-end;margin-top:8px;background:var(--ui-bg);
+  border:1px solid var(--ui-br);border-right:4px solid var(--sun);border-radius:10px;padding:10px 14px;
+  backdrop-filter:blur(6px)}
 .obj-chapter{font-size:11px;letter-spacing:3px;color:var(--sand);opacity:.8}
 .obj-title{font-size:15px;font-weight:700;margin:3px 0 6px;color:var(--sand-light)}
 .obj-steps{list-style:none;font-size:12.5px;line-height:1.65}

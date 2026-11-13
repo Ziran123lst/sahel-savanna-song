@@ -31,12 +31,6 @@
       <div class="res wide" title="可持續發展指數：環境·經濟·社會的平衡"><span class="ico">♻</span><div class="bar"><i id="bar-sus"></i></div><b id="val-sus">50</b></div>
       <div class="res" title="已收集的地理知識點"><span class="ico">📘</span><b id="val-notes">0</b><span class="unit" id="notes-total">/59</span></div>
     </div>
-    <!-- 當前目標：放在左上方統計欄（錢／土地等）的下方 -->
-    <div id="objective" class="hidden">
-      <div class="obj-chapter" id="obj-chapter">序章</div>
-      <div class="obj-title" id="obj-title">農業系統</div>
-      <ul class="obj-steps" id="obj-steps"></ul>
-    </div>
   </div>
   <div class="hud-right">
     <button class="hud-btn" id="btn-journal" title="任務日誌 (Tab)">📜 日誌</button>
@@ -48,6 +42,12 @@
     <button class="hud-btn" id="btn-music" title="環境音樂 開／關 (M)">♫ 音樂</button>
     <button class="hud-btn" id="btn-settings" title="設置 (Esc)">⚙ 設置</button>
     <button class="hud-btn" id="btn-help" title="操作説明 (H)">⌨ 操作</button>
+    <!-- 當前目標：放在右上角按鈕區的下方，靠右對齊 -->
+    <div id="objective" class="hidden">
+      <div class="obj-chapter" id="obj-chapter">序章</div>
+      <div class="obj-title" id="obj-title">農業系統</div>
+      <ul class="obj-steps" id="obj-steps"></ul>
+    </div>
   </div>
 </div>
 
@@ -177,7 +177,7 @@
       'js/config.js', 'js/settings.js', 'js/quiz.js', 'js/story.js', 'js/world.js',
       'js/loader.js', 'js/player.js', 'js/npcs.js', 'js/ui.js', 'js/game.js'
     ];
-    const GAME_VER = 'v20261113h';   // 每次發佈變更，強制刷新緩存
+    const GAME_VER = 'v20261113i';   // 每次發佈變更，強制刷新緩存
   (async () => {
     for (const src of scripts) {
       await new Promise((res, rej) => {

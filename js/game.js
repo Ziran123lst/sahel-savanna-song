@@ -839,6 +839,8 @@
         if (!UI.mode) UI.toggleMusic();
       } else if (code === 'KeyQ') {
         if (!UI.mode) this.toggleMainlineNavigation();
+      } else if (code === 'KeyP') {
+        if (!UI.mode && this.started) UI.togglePeoplePointers();
       } else if (code === 'KeyB') {
         if (this.started) UI.toggleWorldMap();
       } else if (code === 'Escape') {
@@ -1011,6 +1013,10 @@
       // （對話／世界地圖等面板開啟時，標籤會在函式內自動淡出）
       if (this.started && UI.updateWorldLabels) {
         UI.updateWorldLabels(Player.pos, World.camera);
+      }
+      // 可交談人物位置指示：每幀把人物投影到屏幕／邊緣
+      if (this.started && UI.updatePeoplePointers) {
+        UI.updatePeoplePointers(Player.pos, World.camera);
       }
       World.renderer.render(World.scene, World.camera);
     };

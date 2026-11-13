@@ -269,8 +269,8 @@
       }
       // 標籤距離淡出
       const d = Math.sqrt(dist2(playerPos.x, playerPos.z, n.x, n.z));
-      n.label.material.opacity = clamp(1.35 - d / 34, 0, 1);
-      n.label.visible = d < 40;
+      n.label.material.opacity = clamp(1.55 - d / 60, 0, 1);
+      n.label.visible = d < 60;
       const sc = clamp(0.6 + d * 0.055, 0.8, 2.2);
       n.label.scale.set(3.0 * sc, 0.75 * sc, 1);
     }

@@ -230,6 +230,8 @@
     $('btn-journal').onclick = () => this.journal();
     const storyNav = $('btn-story-nav');
     if (storyNav) storyNav.onclick = () => this.game.toggleMainlineNavigation();
+    const bp = $('btn-people');
+    if (bp) bp.onclick = () => this.togglePeoplePointers();
     $('btn-notes').onclick = () => this.notes();
     $('btn-view').onclick = () => this.game.toggleView();
     $('btn-help').onclick = () => this.help();
@@ -243,6 +245,8 @@
     // 地段懸浮標示：小地圖標記、世界地圖、世界上方浮空標籤
     this.buildSiteMarkers();
     this.buildWorldLabels();
+    this.buildPeoplePointers();
+    this.setPeopleActive(true);
     const me = $('mm-expand');
     if (me) me.onclick = () => this.toggleWorldMap();
     const wmc = $('wm-close');
@@ -387,6 +391,7 @@
     const panel = $('world-map');
     if (!panel) return;
     const navId = this.game && this.game._mapTarget ? this.game._mapTarget.siteId : null;
+    const mainId = this.currentMainNpc();
     // 底圖：世界地圖用 520px 高清底圖，與畫布 1:1，放大後依然清晰
     const cv = $('wm-canvas');
     const base = this._wmBase || this._mmBase;
@@ -412,9 +417,22 @@
           if (card) { card.click(); card.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
         };
       });
+      // 人物圖釘：直接標出每位可交談人物的位置，點擊即設為導航目標。
+      // 村莊一帶人物密集，名字標籤於面板顯示後再實測錯開（見下方 avoidNpcPinOverlap）。
+      pins.insertAdjacentHTML('beforeend', S.NPCS.map(n =>
+        '<div class="wm-npc-pin' + (n.id === mainId ? ' main' : '') + (navId === n.id ? ' nav' : '') +
+        '" data-id="' + n.id + '" title="' + n.name + ' · ' + n.role +
+        '" style="left:' + sitePct(n.x) + '%;top:' + sitePct(n.z) + '%">' +
+        '<i></i><span>' + n.name + '</span></div>').join(''));
+      pins.querySelectorAll('.wm-npc-pin').forEach(el => {
+        el.onclick = () => {
+          const n = S.NPCS.find(x => x.id === el.dataset.id);
+          if (n) this.setMapTarget(n);
+        };
+      });
     }
     if (cards) {
-      cards.innerHTML = S.SITES.map(s => {
+      cards.innerHTML = '<div class="wc-head">📍 地段 · 「前往」可設為導航目標</div>' + S.SITES.map(s => {
         const m = siteMeta(s), d = siteDist(this._playerPos, s);
         return '<div class="wm-card' + (navId === s.id ? ' nav' : '') + '" data-id="' + s.id + '" style="--pin:' + m.color + '">' +
           '<i class="sims-gem"></i><div class="wc-body">' +
@@ -436,8 +454,53 @@
         el.querySelector('.wc-go').onclick = ev => { ev.stopPropagation(); this.setMapTarget(s); };
       });
     }
+    // 側欄人物清單：姓名、身份、距離一目了然，主線人物排在前面並標綠
+    const people = $('wm-people');
+    if (people) {
+      const pos = this._playerPos || { x: 0, z: 0 };
+      const order = S.NPCS.slice().sort((a, b) =>
+        (a.id === mainId ? -1 : 0) - (b.id === mainId ? -1 : 0) ||
+        Math.hypot(pos.x - a.x, pos.z - a.z) - Math.hypot(pos.x - b.x, pos.z - b.z));
+      people.innerHTML = '<div class="wp-head">💬 可交談人物 <b>' + order.length + '</b> 位 · 點擊設為導航目標</div>' +
+        order.map(n => {
+          const d = Math.round(Math.hypot(pos.x - n.x, pos.z - n.z));
+          return '<button type="button" class="wp-row' + (n.id === mainId ? ' main' : '') +
+            '" data-id="' + n.id + '"><span class="wp-name">' + n.name + '</span>' +
+            '<span class="wp-role">' + n.role + '</span>' +
+            '<span class="wp-dist">' + d + ' m</span></button>';
+        }).join('');
+      people.querySelectorAll('.wp-row').forEach(el => {
+        const n = S.NPCS.find(x => x.id === el.dataset.id);
+        el.onclick = () => { if (n) this.setMapTarget(n); };
+      });
+    }
     panel.classList.remove('hidden');
     this.mode = 'worldmap';
+    this.avoidNpcPinOverlap();
+  };
+
+  /* 人物圖釘名字避讓：實測「名字標籤本身」的矩形（父元素 rect 不含子元素
+     transform 位移，不能用來判斷），只移動標籤，圓點保持在真實座標不失真 */
+  UI.avoidNpcPinOverlap = function () {
+    const pins = $('wm-pins');
+    if (!pins) return;
+    const spans = [...pins.querySelectorAll('.wm-npc-pin span')];
+    spans.forEach(sp => { sp.style.transform = 'translateY(0px)'; });
+    for (let i = 1; i < spans.length; i++) {
+      const sp = spans[i];
+      let shift = 0;
+      for (let guard = 0; guard < 8; guard++) {
+        const r = sp.getBoundingClientRect();
+        let hit = false;
+        for (let j = 0; j < i; j++) {
+          const a = spans[j].getBoundingClientRect();
+          if (r.right > a.left && r.left < a.right && r.bottom > a.top && r.top < a.bottom) { hit = true; break; }
+        }
+        if (!hit) break;
+        shift += 16;
+        sp.style.transform = 'translateY(' + shift + 'px)';
+      }
+    }
   };
 
   UI.closeWorldMap = function () {
@@ -497,6 +560,115 @@
       const dd = el.querySelector('.wl-dist');
       if (dd) dd.textContent = Math.round(d) + ' m';
       el.classList.toggle('wl-here', d < s.r);
+    }
+  };
+
+  /* ================= 可交談人物位置指示 =================
+   * 屏幕內顯示名牌、屏幕外於邊緣顯示方位箭頭；主線人物綠色高亮。
+   * 與 3D 頭頂名牌分工：60m 內且已在畫面內的人物交給頭頂名牌，避免重影。 */
+  UI.currentMainNpc = function () {
+    const step = this.game && this.game.currentStep ? this.game.currentStep() : null;
+    return step && step.k === 'talk' ? step.npc : null;
+  };
+
+  UI.buildPeoplePointers = function () {
+    const layer = $('npc-pointers');
+    if (!layer) return;
+    layer.innerHTML = '';
+    this._ptrPool = [];
+    for (let i = 0; i < 7; i++) {
+      const el = document.createElement('div');
+      el.className = 'npc-ptr';
+      el.innerHTML = '<span class="np-arrow">➤</span><span class="np-name"></span>' +
+                     '<span class="np-dist"></span><span class="np-badge">主線</span>';
+      layer.appendChild(el);
+      this._ptrPool.push(el);
+    }
+  };
+
+  UI.setPeopleActive = function (active) {
+    this._peopleOn = !!active;
+    const b = $('btn-people');
+    if (b) {
+      b.classList.toggle('active', this._peopleOn);
+      b.textContent = this._peopleOn ? '👥 人物' : '👥 人物關';
+      b.title = this._peopleOn ? '人物位置指示已開啟（按 P 關閉）' : '人物位置指示已關閉（按 P 開啟）';
+    }
+    if (!this._peopleOn && this._ptrPool) this._ptrPool.forEach(el => el.classList.remove('show'));
+  };
+
+  UI.togglePeoplePointers = function () {
+    this.setPeopleActive(!this._peopleOn);
+    this.toast(this._peopleOn
+      ? '👥 已開啟人物位置指示：名牌與邊緣箭頭標示各人物方向'
+      : '👥 已關閉人物位置指示（按 P 可重新開啟）', 'good');
+  };
+
+  UI.updatePeoplePointers = function (playerPos, camera) {
+    const pool = this._ptrPool;
+    if (!pool || !camera || !window.THREE || !playerPos) return;
+    if (this.mode || !this._peopleOn) {
+      pool.forEach(el => el.classList.remove('show'));
+      return;
+    }
+    const w = window.innerWidth, h = window.innerHeight;
+    const cx = w / 2, cy = h / 2;
+    const mainId = this.currentMainNpc();
+    const v = new THREE.Vector3();
+    const G = S.World;
+    const candidates = [];
+    for (const n of S.NPCS) {
+      const live = S.NPCs && S.NPCs.get ? S.NPCs.get(n.id) : null;
+      const x = live ? live.x : n.x, z = live ? live.z : n.z;
+      const d = Math.hypot(playerPos.x - x, playerPos.z - z);
+      if (d < 12 || d > 300) continue;
+      const gy = G && G.groundY ? G.groundY(x, z) : 0;
+      v.set(x, gy + 2.5, z).project(camera);
+      const behind = v.z > 1 || v.z < -1;
+      let nx = v.x, ny = v.y;
+      if (behind) { nx = -nx; ny = -ny; }
+      const sx = (nx * 0.5 + 0.5) * w, sy = (-ny * 0.5 + 0.5) * h;
+      const onScreen = !behind && Math.abs(v.x) < 0.94 && Math.abs(v.y) < 0.92;
+      if (onScreen && d < 60) continue;      // 近處交給 3D 頭頂名牌
+      candidates.push({ name: n.name, d, sx, sy, onScreen, main: n.id === mainId });
+    }
+    candidates.sort((a, b) => (a.main !== b.main ? (a.main ? -1 : 1) : a.d - b.d));
+    const shown = candidates.filter(c => c.main || c.d <= 260).slice(0, pool.length);
+    const padX = 118, padY = 96;
+    const layout = shown.map(c => {
+      let px, py, ang = 0;
+      if (c.onScreen) {
+        px = Math.max(padX, Math.min(w - padX, c.sx));
+        py = Math.max(112, Math.min(h - 72, c.sy));
+      } else {
+        const dx = c.sx - cx, dy = c.sy - cy;
+        ang = Math.atan2(dy, dx);
+        const k = Math.min((w / 2 - padX) / Math.max(Math.abs(dx), 0.001),
+                           (h / 2 - padY) / Math.max(Math.abs(dy), 0.001));
+        px = cx + dx * Math.min(1, k);
+        py = cy + dy * Math.min(1, k);
+      }
+      return { c, px, py, ang };
+    });
+    // 同方向的名牌互相避讓，避免疊在一起看不清是誰
+    for (let i = 1; i < layout.length; i++) {
+      for (let j = 0; j < i; j++) {
+        const a = layout[j], b = layout[i];
+        if (Math.abs(a.px - b.px) < 132 && Math.abs(a.py - b.py) < 30) b.py = a.py + 30;
+      }
+    }
+    for (let i = 0; i < pool.length; i++) {
+      const el = pool[i], L = layout[i];
+      if (!L) { el.classList.remove('show'); continue; }
+      const c = L.c;
+      el.style.left = L.px + 'px';
+      el.style.top = L.py + 'px';
+      el.classList.toggle('edge', !c.onScreen);
+      el.classList.toggle('main', c.main);
+      el.querySelector('.np-name').textContent = c.name;
+      el.querySelector('.np-dist').textContent = Math.round(c.d) + ' m';
+      el.querySelector('.np-arrow').style.transform = c.onScreen ? 'none' : 'rotate(' + L.ang + 'rad)';
+      el.classList.add('show');
     }
   };
 
@@ -1034,6 +1206,7 @@
       ['G', '吹哨趕牛／停止趕牛'],
       ['M', '環境音樂 開／關'],
       ['Q', '開／關主線故事導航箭頭'],
+      ['P / 👥 人物', '開／關人物位置指示'],
       ['B', '世界地圖／地段懸浮標示'],
       ['Esc', '關閉當前面板']
     ];
@@ -1045,6 +1218,9 @@
       '<p style="margin-top:10px">所有對話、任務、題目與筆記條目<b>只取材自 C5《農業與饑荒》5.1–5.8</b>：' +
       '農業系統、農業的分類、薩赫勒遊牧業、南加州灌溉農業、饑荒的定義與成因、解決方法、農業科技的代價。' +
       '答對可獲得 250 F；答錯會扣除 500 F，並顯示詳細解析——這是學習的一部分。</p>' +
+      '<p style="margin-top:10px">畫面上的 <b>💬 名牌</b> 與邊緣箭頭會標示可交談人物的方向與距離，' +
+      '<b>綠色</b> 代表當前主線要找的人；小地圖白點是一般人物。按 <b>B</b> 打開世界地圖可查看全部人物、身份與位置，' +
+      '點選人物即可設為導航目標。按 <b>P</b> 可開／關人物指示。</p>' +
       '<h2>放牛玩法</h2>' +
       '<p>按 <b>G</b>，或點畫面右上角的 <b>🎵 吹哨</b> 鍵，就會吹一聲喚牛口哨，' +
       '附近的牛會跟着你走；把牠們帶到<b>牧民營地的畜欄</b>，' +
@@ -1328,11 +1504,18 @@
       c.lineWidth = 1.6;
       c.beginPath(); c.arc(x, z, 5 + Math.sin(performance.now() / 260) * 1.6, 0, 6.283); c.stroke();
     });
-    // NPC
+    // 可交談人物：白點＝一般人，綠色脈動圈＝當前主線要找的人
+    const mainId = this.currentMainNpc();
     S.NPCS.forEach(n => {
       const [x, z] = toMM(n.x, n.z);
-      c.fillStyle = 'rgba(255,255,255,0.55)';
-      c.fillRect(x - 1, z - 1, 2, 2);
+      const main = n.id === mainId;
+      if (main) {
+        c.strokeStyle = '#8fd07a'; c.lineWidth = 1.8;
+        c.beginPath(); c.arc(x, z, 5 + Math.sin(performance.now() / 260) * 1.4, 0, 6.283); c.stroke();
+      }
+      c.beginPath(); c.arc(x, z, main ? 3 : 2.2, 0, 6.283);
+      c.fillStyle = main ? '#8fd07a' : '#ffffff'; c.fill();
+      c.strokeStyle = 'rgba(20,12,6,.8)'; c.lineWidth = .8; c.stroke();
     });
     // 玩家
     const [px, pz] = toMM(playerPos.x, playerPos.z);

@@ -319,10 +319,11 @@
       const c = makeCactus(rng, t.kind);
       c.position.set(t.x, heightAt(t.x, t.z), t.z);
       c.rotation.y = rng() * 6.283;
-      c.scale.setScalar(0.9 + rng() * 0.3);
+      // 原尺寸偏大；整体缩至约 55%，让仙人掌更像稀疏的地表植被
+      c.scale.setScalar(0.5 + rng() * 0.12);
       scene.add(c);
-      if (t.kind === 1) World.obstacles.push({ x: t.x, z: t.z, r: 1.6 });
-      else if (t.kind === 0 && rng() < 0.3) World.obstacles.push({ x: t.x, z: t.z, r: 1.0 });
+      if (t.kind === 1) World.obstacles.push({ x: t.x, z: t.z, r: 0.9 });
+      else if (t.kind === 0 && rng() < 0.3) World.obstacles.push({ x: t.x, z: t.z, r: 0.6 });
     }
     return spots;
   }
@@ -603,11 +604,11 @@
     // （薩赫勒半乾旱，不以喬木為地標；以巨型仙人掌取代原先的集會老樹）
     const gx = vil.x + 2, gz = vil.z + 2;
     const giant = makeCactus(rng, 1);
-    giant.scale.setScalar(1.7);
+    giant.scale.setScalar(0.9);
     giant.position.set(gx, heightAt(gx, gz), gz);
     giant.rotation.y = 0.4;
     scene.add(giant);
-    World.obstacles.push({ x: gx, z: gz, r: 2.6 });
+    World.obstacles.push({ x: gx, z: gz, r: 1.4 });
   }
 
   /* ============ 水井 ============ */

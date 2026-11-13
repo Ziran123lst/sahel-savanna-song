@@ -462,7 +462,14 @@
           this.state.sustain = clamp(this.state.sustain + 2, 0, 100);
           this.state.cash += 250;
         } else {
+          // 答錯的明確經濟懲罰：扣除 500 F；現金不足時最多扣至 0，避免出現負數債務。
+          const beforeCash = Math.max(0, this.state.cash);
+          const penalty = Math.min(500, beforeCash);
+          this.state.cash = beforeCash - penalty;
           this.state.sustain = clamp(this.state.sustain - 0.5, 0, 100);
+          UI.toast(penalty === 500
+            ? '答錯了！扣除 500 F。請看解析，再繼續學習。'
+            : '答錯了！現金不足，已扣除剩餘 ' + penalty + ' F。請看解析，再繼續學習。', 'bad');
         }
         this.syncHUD();
         next();

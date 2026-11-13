@@ -63,6 +63,9 @@ canvas#scene{position:fixed;inset:0;width:100%;height:100%;display:block}
 /* ---------- 目標 ---------- */
 #objective{position:fixed;left:14px;bottom:14px;max-width:330px;background:var(--ui-bg);
   border:1px solid var(--ui-br);border-left:4px solid var(--sun);border-radius:10px;padding:10px 14px;z-index:20;backdrop-filter:blur(6px)}
+/* 觸屏時把任務指示上移到搖桿上方，避免兩者重合。
+   搖桿：left 26px、bottom 26px、120×120 → 頂端離底 146px，再留 16px 間距。 */
+body.touch-mode #objective{bottom:162px;max-width:min(330px,calc(100vw - 28px))}
 .obj-chapter{font-size:11px;letter-spacing:3px;color:var(--sand);opacity:.8}
 .obj-title{font-size:15px;font-weight:700;margin:3px 0 6px;color:var(--sand-light)}
 .obj-steps{list-style:none;font-size:12.5px;line-height:1.65}

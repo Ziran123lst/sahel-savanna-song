@@ -10,6 +10,11 @@
   // 讀取玩家設置（本地持久化）；缺失時回落到中性默認值
   const SET = () => ((S.Settings && S.Settings.data) || {});
 
+  // 角色目標身高（米）：由原本的 1.9 縮小到 1.55，讓主角在場景中不顯得過大。
+  // H_RATIO 供佔位膠囊、接觸陰影與行走晃動一併等比縮放，避免模型載入失敗時大小不一致。
+  const TARGET_H = 1.55;
+  const H_RATIO = TARGET_H / 1.9;
+
   const Player = {
     group: null,
     model: null,
@@ -41,17 +46,17 @@
   /* ---------------- 建模（佔位，模型就緒後替換） ---------------- */
   Player.create = function (scene) {
     this.group = new THREE.Group();
-    // 佔位體：腳底貼地的“人形”膠囊（身高約 3.0m）。
-    // 即便 GLB 加載失敗，也不會出現“又小又飄”的小膠囊。
+    // 佔位體：腳底貼地的“人形”膠囊，與 GLB 模型同為 TARGET_H 高。
+    // 即便 GLB 加載失敗，也不會出現大小不一致或懸空。
     const ph = new THREE.Mesh(
-      new THREE.CapsuleGeometry(0.28, 1.34, 6, 12),
+      new THREE.CapsuleGeometry(0.28 * H_RATIO, 1.34 * H_RATIO, 6, 12),
       new THREE.MeshLambertMaterial({ color: 0x3f6ea8 })
     );
-    ph.position.y = 0.95; ph.castShadow = true;
+    ph.position.y = 0.95 * H_RATIO; ph.castShadow = true;
     this._placeholder = ph;
     this.group.add(ph);
     // 腳下接觸陰影
-    const shGeo = new THREE.CircleGeometry(0.38, 16);
+    const shGeo = new THREE.CircleGeometry(0.38 * H_RATIO, 16);
     shGeo.rotateX(-Math.PI / 2);
     this._blobShadow = new THREE.Mesh(shGeo, new THREE.MeshBasicMaterial({
       color: 0x1a0e05, transparent: true, opacity: 0.35, depthWrite: false
@@ -82,8 +87,7 @@
     // 按包圍盒歸一化身高，並把腳底對齊到本地 y=0（不同模型原生單位差異巨大）
     const box = new THREE.Box3().setFromObject(m);
     const size = new THREE.Vector3(); box.getSize(size);
-    const TARGET_H = 1.9;    // 按真實成年人身高歸一化
-    const s = TARGET_H / (size.y || TARGET_H);
+    const s = TARGET_H / (size.y || TARGET_H);   // 歸一化到 TARGET_H
     m.scale.setScalar(s);
     const box2 = new THREE.Box3().setFromObject(m);
     m.position.y = -box2.min.y;            // 腳底落到 group 原點
@@ -299,13 +303,13 @@
       this.mixer.update(dt * (this.moving ? (this.running ? 1.15 : 0.85) : 1));
     } else if (this._placeholder && this.moving) {
       this._bobPhase += dt * 10;
-      this._placeholder.position.y = 0.95 + Math.abs(Math.sin(this._bobPhase)) * 0.04;
+      this._placeholder.position.y = (0.95 + Math.abs(Math.sin(this._bobPhase)) * 0.04) * H_RATIO;
     }
 
     // 相機
     const cosP = Math.cos(this.pitch), sinP = Math.sin(this.pitch);
     if (this.firstPerson) {
-      const headY = this.pos.y + (this.eyeY || 1.62);
+      const headY = this.pos.y + (this.eyeY || TARGET_H - 0.16);
       this._camPos.set(this.pos.x, headY, this.pos.z);
       camera.position.copy(this._camPos);
       const dirX = -Math.sin(this.yaw) * cosP;

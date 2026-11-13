@@ -116,7 +116,11 @@
     document.getElementById('objective').classList.remove('hidden');
     const touchCapable = 'ontouchstart' in window || navigator.maxTouchPoints > 0 ||
       (window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
-    if (touchCapable) document.getElementById('touch-ui').classList.remove('hidden');
+    if (touchCapable) {
+      document.getElementById('touch-ui').classList.remove('hidden');
+      // 標記觸屏版面：任務指示改為上移，避開左下角搖桿
+      document.body.classList.add('touch-mode');
+    }
     this.actIndex = 0; this.stepIndex = 0;
     this._mainlineNav = true;
     UI.setMainlineNavActive(true);

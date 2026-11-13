@@ -246,6 +246,16 @@ kbd{display:inline-block;background:var(--sun);color:#2a1a10;border-radius:5px;p
 #nav-arrow b{font-size:12px;color:#ffe9bf;background:rgba(20,12,6,.55);
   padding:2px 8px;border-radius:10px;margin-top:2px;font-weight:700}
 #nav-arrow.hidden{display:none!important}
+#story-nav-arrow{position:fixed;left:50%;top:50%;z-index:23;pointer-events:none;
+  transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;
+  filter:drop-shadow(0 2px 6px rgba(0,0,0,.5));opacity:.92}
+#story-nav-arrow .sna-ico{font-size:38px;line-height:1;color:#8fd07a;
+  animation:story-nav-pulse 1.35s ease-in-out infinite}
+#story-nav-arrow b{font-size:12px;color:#dff5c9;background:rgba(17,38,17,.68);
+  padding:3px 9px;border:1px solid rgba(143,208,122,.45);border-radius:10px;margin-top:2px;font-weight:700}
+#story-nav-arrow.hidden{display:none!important}
+.story-nav-btn.active{background:rgba(82,147,76,.42);border-color:#8fd07a;color:#e5ffd7}
+@keyframes story-nav-pulse{0%,100%{transform:scale(1);opacity:.78}50%{transform:scale(1.15);opacity:1}}
 @keyframes na-pulse{0%,100%{transform:scale(1);opacity:.85}50%{transform:scale(1.18);opacity:1}}
 
 /* ---------- 設置面板 ---------- */

@@ -228,6 +228,8 @@
     this.game = game;
 
     $('btn-journal').onclick = () => this.journal();
+    const storyNav = $('btn-story-nav');
+    if (storyNav) storyNav.onclick = () => this.game.toggleMainlineNavigation();
     $('btn-notes').onclick = () => this.notes();
     $('btn-view').onclick = () => this.game.toggleView();
     $('btn-help').onclick = () => this.help();
@@ -348,6 +350,8 @@
     // 再點同一地段＝取消導航，方便玩家隨時改主意
     if (this.game && this.game._mapTarget && this.game._mapTarget.siteId === s.id) {
       this.game._mapTarget = null;
+      this.game._mainlineNav = true;
+      this.setMainlineNavActive(true);
       this.hideSiteTip();
       this.closeWorldMap();
       if (this.toast) this.toast('🧭 已取消導航目標', 'good');
@@ -355,6 +359,8 @@
     }
     if (this.game) {
       this.game._mapTarget = { x: s.x, z: s.z, siteId: s.id, name: s.name };
+      this.game._mainlineNav = false;
+      this.setMainlineNavActive(false);
     }
     this.hideSiteTip();
     this.closeWorldMap();
@@ -633,6 +639,38 @@
   };
 
   UI.hideNavArrow = function () { if (this._navArrow) this._navArrow.classList.add('hidden'); };
+
+  /* 主線故事導航：獨立於世界地圖自訂目標，方便自由探索時隨時回到當前主線。 */
+  UI.setMainlineNavActive = function (active) {
+    const b = $('btn-story-nav');
+    if (!b) return;
+    b.classList.toggle('active', !!active);
+    b.textContent = active ? '🧭 主線中' : '🧭 主線';
+    b.title = active ? '主線導航已開啟（按 Q 關閉）' : '主線導航（按 Q 開啟）';
+  };
+
+  UI.mainlineArrow = function (sx, sy, onScreen, distText) {
+    const el = $('story-nav-arrow');
+    if (!el) return;
+    const W = window.innerWidth, H = window.innerHeight;
+    const cx = W / 2, cy = H / 2;
+    const ang = Math.atan2(sy - cy, sx - cx);
+    const edge = Math.min(W, H) / 2 - 72;
+    const r = onScreen
+      ? Math.min(edge, Math.hypot(sx - cx, sy - cy) * 0.9)
+      : edge;
+    el.classList.remove('hidden');
+    el.style.left = (cx + Math.cos(ang) * r) + 'px';
+    el.style.top = (cy + Math.sin(ang) * r) + 'px';
+    el.style.transform = 'translate(-50%,-50%) rotate(' + (ang + Math.PI / 2) + 'rad)';
+    const db = $('story-nav-dist');
+    if (db) db.textContent = distText || '';
+  };
+
+  UI.hideMainlineArrow = function () {
+    const el = $('story-nav-arrow');
+    if (el) el.classList.add('hidden');
+  };
 
   /* ---------------- HUD ---------------- */
   UI.setHUD = function (st) {
@@ -994,6 +1032,7 @@
       ['H', '操作説明'],
       ['G', '吹哨趕牛／停止趕牛'],
       ['M', '環境音樂 開／關'],
+      ['Q', '開／關主線故事導航箭頭'],
       ['B', '世界地圖／地段懸浮標示'],
       ['Esc', '關閉當前面板']
     ];

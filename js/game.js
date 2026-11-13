@@ -35,7 +35,8 @@
     _stormT: 0,
     _stormOn: false,
     _lastZoneId: null,
-    _pendingQuiz: []
+    _pendingQuiz: [],
+    _mainlineNav: true
   };
 
   /* ================= 啓動 ================= */
@@ -117,6 +118,8 @@
       (window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
     if (touchCapable) document.getElementById('touch-ui').classList.remove('hidden');
     this.actIndex = 0; this.stepIndex = 0;
+    this._mainlineNav = true;
+    UI.setMainlineNavActive(true);
     World.setSeason('dry');
     // 進入世界時才啟動環境音樂：此刻已有點擊手勢，AudioContext 能正常發聲
     if (UI.Ambient) {
@@ -141,6 +144,50 @@
   Game.currentStep = function () {
     const act = ACTS[this.actIndex];
     return act ? act.steps[this.stepIndex] : null;
+  };
+
+  // 將當前主線步驟轉成世界座標，供自由探索時的主線箭頭使用。
+  Game.mainlineTarget = function () {
+    const step = this.currentStep();
+    if (!step) return null;
+    if (step.k === 'goto' && step.site) {
+      const s = siteById(step.site);
+      return s ? { x: s.x, z: s.z, name: s.name } : null;
+    }
+    if (step.k === 'talk' && step.npc) {
+      const live = NPCs && NPCs.get ? NPCs.get(step.npc) : null;
+      const spec = live || NPCS.find(n => n.id === step.npc);
+      return spec ? { x: spec.x, z: spec.z, name: spec.name || '主線人物' } : null;
+    }
+    if (step.k === 'probe') {
+      const p = this.probes.filter(x => !x.done).sort((a, b) =>
+        dist2(Player.pos.x, Player.pos.z, a.x, a.z) - dist2(Player.pos.x, Player.pos.z, b.x, b.z))[0];
+      return p ? { x: p.x, z: p.z, name: '調查點' } : null;
+    }
+    if (step.k === 'mini' && this.taskPoint) {
+      return { x: this.taskPoint.x, z: this.taskPoint.z, name: '主線活動' };
+    }
+    return null;
+  };
+
+  Game.toggleMainlineNavigation = function () {
+    if (!this.started) return;
+    if (this._mainlineNav) {
+      this._mainlineNav = false;
+      UI.setMainlineNavActive(false);
+      UI.hideMainlineArrow();
+      UI.toast('🧭 已暫停主線導航；按 Q 或「主線」可隨時返回', 'good');
+      return;
+    }
+    const target = this.mainlineTarget();
+    if (!target) {
+      UI.toast('主線正在準備下一步，請稍候再試。', 'note');
+      return;
+    }
+    this._mapTarget = null;
+    this._mainlineNav = true;
+    UI.setMainlineNavActive(true);
+    UI.toast('🧭 主線導航已開啟：跟着綠色箭頭回到「' + target.name + '」', 'good');
   };
 
   Game.beginStep = function () {
@@ -781,6 +828,8 @@
         if (!UI.mode && this.started) this.toggleHerd();
       } else if (code === 'KeyM') {
         if (!UI.mode) UI.toggleMusic();
+      } else if (code === 'KeyQ') {
+        if (!UI.mode) this.toggleMainlineNavigation();
       } else if (code === 'KeyB') {
         if (this.started) UI.toggleWorldMap();
       } else if (code === 'Escape') {
@@ -890,17 +939,41 @@
           if (md < 14) {
             UI.toast('🧭 已抵達「' + this._mapTarget.name + '」', 'good');
             this._mapTarget = null;
+            this._mainlineNav = true;
+            UI.setMainlineNavActive(true);
           } else {
             targets.push(this._mapTarget);
           }
         }
         UI.drawMinimap(Player.pos, Player.yaw, targets);
 
-        // 任務導航箭頭：把當前優先目標投影到屏幕，始終指向任務方向
+        // 主線導航箭頭：自由探索、做商店等非主線內容時，按 Q 或 HUD「主線」
+        // 即可清除自訂地圖目標，重新指向當前主線步驟。
+        const mainTarget = this.mainlineTarget();
+        const drawProjectedArrow = (t, render) => {
+          const bd = dist2(Player.pos.x, Player.pos.z, t.x, t.z);
+          const dist = Math.sqrt(bd);
+          if (dist < 14) { render(null); return; }
+          const ty = heightAt(t.x, t.z) + 1.4;
+          const wp = new THREE.Vector3(t.x, ty, t.z).project(World.camera);
+          const behind = wp.z > 1;
+          let nx = wp.x, ny = wp.y;
+          if (behind) { nx = -nx; ny = -ny; }
+          const sx = (nx * 0.5 + 0.5) * window.innerWidth;
+          const sy = (-ny * 0.5 + 0.5) * window.innerHeight;
+          render({ sx, sy, onScreen: !behind && Math.abs(wp.x) <= 1 && Math.abs(wp.y) <= 1, dist });
+        };
         if (UI.mode) {
           UI.hideNavArrow();
+          UI.hideMainlineArrow();
+        } else if (this._mainlineNav && mainTarget) {
+          UI.hideNavArrow();
+          drawProjectedArrow(mainTarget, a => a
+            ? UI.mainlineArrow(a.sx, a.sy, a.onScreen, Math.round(a.dist) + ' 米')
+            : UI.hideMainlineArrow());
         } else if (targets.length) {
-          // 玩家在世界地圖自訂的導航目標優先；否則選取離玩家最近的目標
+          UI.hideMainlineArrow();
+          // 玩家在世界地圖自訂導航目標優先；否則選取離玩家最近的目標
           let t, bd;
           if (this._mapTarget) {
             t = this._mapTarget;
@@ -913,13 +986,13 @@
             }
           }
           const dist = Math.sqrt(bd);
-          if (dist < 14) { UI.hideNavArrow(); }   // 已抵達：隱藏
+          if (dist < 14) { UI.hideNavArrow(); }
           else {
             const ty = heightAt(t.x, t.z) + 1.4;
             const wp = new THREE.Vector3(t.x, ty, t.z).project(World.camera);
-            const behind = wp.z > 1;               // 目標在相機身後
+            const behind = wp.z > 1;
             let nx = wp.x, ny = wp.y;
-            if (behind) { nx = -nx; ny = -ny; }     // 翻轉屏幕方向，指向正確側
+            if (behind) { nx = -nx; ny = -ny; }
             const sx = (nx * 0.5 + 0.5) * window.innerWidth;
             const sy = (-ny * 0.5 + 0.5) * window.innerHeight;
             const onScreen = !behind && Math.abs(wp.x) <= 1 && Math.abs(wp.y) <= 1;
@@ -927,6 +1000,7 @@
           }
         } else {
           UI.hideNavArrow();
+          UI.hideMainlineArrow();
         }
       }
       // 世界上方的浮空地段標籤：每幀把 3D 地段座標投影到屏幕

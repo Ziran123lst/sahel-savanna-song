@@ -833,6 +833,8 @@
         if (!UI.mode) this.toggleView();
       } else if (code === 'KeyG') {
         if (!UI.mode && this.started) this.toggleHerd();
+      } else if (code === 'KeyR') {
+        if (!UI.mode && this.started) { e.preventDefault(); Player.toggleRun(); }
       } else if (code === 'KeyM') {
         if (!UI.mode) UI.toggleMusic();
       } else if (code === 'KeyQ') {
@@ -864,10 +866,10 @@
       if (bh) bh.addEventListener('click', () => {
         if (this.started && !UI.mode) this.toggleHerd();
       });
-      // 觸屏專用吹哨鍵，與 HUD 的「🎵 吹哨」和 G 鍵走同一個入口
-      const bw = document.getElementById('btn-whistle');
-      if (bw) bw.addEventListener('click', () => {
-        if (this.started && !UI.mode) this.toggleHerd();
+      // 跑步切換鍵（F 鍵正上方）：點擊開／關跑步狀態，不需按住
+      const br = document.getElementById('btn-run');
+      if (br) br.addEventListener('click', () => {
+        if (this.started && !UI.mode) Player.toggleRun();
       });
     };
 
@@ -878,11 +880,6 @@
       ? '🎵 你吹了一聲口哨！附近的牛會跟着你，把牠們帶到牧民營地的畜欄。'
       : '🎵 收哨，牛羣恢復自由吃草。', 'good');
     UI.SFX.whistle(!st.active);
-    const bw = document.getElementById('btn-whistle');
-    if (bw) {
-      bw.classList.toggle('whistling', st.active);
-      bw.title = st.active ? '再吹一次哨，停止趕牛' : '吹哨趕牛';
-    }
     this.updateHerdHUD();
   };
 

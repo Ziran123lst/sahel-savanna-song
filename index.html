@@ -138,8 +138,8 @@
 <!-- ============ 移動端搖桿 ============ -->
 <div id="touch-ui" class="hidden">
   <div id="stick"><i></i></div>
-  <button id="btn-sprint" title="疾跑（按住）">🏃</button>
-  <button id="btn-whistle" type="button" title="吹哨趕牛" aria-label="吹哨趕牛">🎵</button>
+  <!-- 跑步切換鍵（F 鍵正上方）：點擊開／關跑步狀態，不必按住 -->
+  <button id="btn-run" type="button" title="跑步：點擊開／關" aria-label="切換跑步狀態" aria-pressed="false">🏃</button>
   <button id="btn-act" type="button" aria-label="交互">F</button>
 </div>
 
@@ -177,7 +177,7 @@
       'js/config.js', 'js/settings.js', 'js/quiz.js', 'js/story.js', 'js/world.js',
       'js/loader.js', 'js/player.js', 'js/npcs.js', 'js/ui.js', 'js/game.js'
     ];
-    const GAME_VER = 'v20261113i';   // 每次發佈變更，強制刷新緩存
+    const GAME_VER = 'v20261113j';   // 每次發佈變更，強制刷新緩存
   (async () => {
     for (const src of scripts) {
       await new Promise((res, rej) => {

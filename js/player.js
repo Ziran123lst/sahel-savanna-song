@@ -29,6 +29,7 @@
     speed: 0,
     moving: false,
     running: false,
+    runMode: false,        // 跑步狀態開關：點擊切換，不必按住
     enabled: true,
     firstPerson: false,
     ready: false,
@@ -159,7 +160,7 @@
     let pinch = null;               // 雙指：{mx,my,dist}
     const onCamDown = e => {
       if (e.pointerId === this._joyId) return;                     // 搖桿獨佔
-      if (e.target && e.target.closest && e.target.closest('#stick,#btn-act,#btn-sprint')) return;
+      if (e.target && e.target.closest && e.target.closest('#stick,#btn-act,#btn-run')) return;
       pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (pts.size === 1) { glance = { x: e.clientX, y: e.clientY }; }
       else if (pts.size === 2) {
@@ -210,16 +211,23 @@
       e.preventDefault();
     }, { passive: false });
 
-    // 疾跑：Shift（鍵盤）或移動端按鈕（this._sprintTouch）
-    const btnSprint = document.getElementById('btn-sprint');
-    if (btnSprint) {
-      const on = e => { e.preventDefault(); this._sprintTouch = true; };
-      const off = e => { e.preventDefault(); this._sprintTouch = false; };
-      btnSprint.addEventListener('pointerdown', on);
-      btnSprint.addEventListener('pointerup', off);
-      btnSprint.addEventListener('pointercancel', off);
-      btnSprint.addEventListener('pointerleave', off);
+    // 跑步改為「點擊切換」狀態，事件綁定見 Game.bindKeys（按鈕與 R 鍵共用 Player.toggleRun）
+  };
+
+  /* 開／關跑步狀態：觸屏 🏃 鍵與鍵盤 R 共用同一入口。
+     開啟後持續保持跑步，直到再次點擊／按 R 才關閉；不需按住。 */
+  Player.toggleRun = function () {
+    this.runMode = !this.runMode;
+    const b = document.getElementById('btn-run');
+    if (b) {
+      b.classList.toggle('running', this.runMode);
+      b.setAttribute('aria-pressed', this.runMode ? 'true' : 'false');
+      b.title = this.runMode ? '跑步中：點擊關閉' : '跑步：點擊開啓';
     }
+    if (S.UI && S.UI.toast) {
+      S.UI.toast(this.runMode ? '🏃 已開啓跑步（再點一次關閉）' : '🚶 已關閉跑步', 'good');
+    }
+    return this.runMode;
   };
 
   /* ---------------- 每幀 ---------------- */
@@ -245,7 +253,7 @@
     }
     const mag = Math.hypot(ix, iz);
     if (mag > 1) { ix /= mag; iz /= mag; }
-    this.running = this.enabled && !!(k['ShiftLeft'] || k['ShiftRight'] || this._sprintTouch) && mag > 0.1;
+    this.running = this.enabled && !!(k['ShiftLeft'] || k['ShiftRight'] || this.runMode) && mag > 0.1;
 
     // 方向（相對相機水平朝向）
     const fx = -Math.sin(this.yaw), fz = -Math.cos(this.yaw);

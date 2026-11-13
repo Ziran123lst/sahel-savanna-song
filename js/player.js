@@ -261,7 +261,7 @@
     const mx = fx * iz + rx * ix;
     const mz = fz * iz + rz * ix;
 
-    const maxSpeed = this.running ? 13.0 : 7.2;   // 較舊版更快
+    const maxSpeed = this.running ? 16.9 : 7.2;   // 跑步較舊版再快 30%，步行不變
     const target = Math.hypot(mx, mz) > 0.02 ? maxSpeed : 0;
     this.speed = lerp(this.speed, target, Math.min(dt * 9, 1));
     this.moving = this.speed > 0.4;
@@ -308,7 +308,7 @@
         want.reset().fadeIn(0.18).play();
         this._curAction = want;
       }
-      this.mixer.update(dt * (this.moving ? (this.running ? 1.15 : 0.85) : 1));
+      this.mixer.update(dt * (this.moving ? (this.running ? 1.5 : 0.85) : 1));
     } else if (this._placeholder && this.moving) {
       this._bobPhase += dt * 10;
       this._placeholder.position.y = (0.95 + Math.abs(Math.sin(this._bobPhase)) * 0.04) * H_RATIO;

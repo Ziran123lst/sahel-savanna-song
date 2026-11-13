@@ -4,31 +4,17 @@
   "scope": "倉庫內全部實際使用的 3D 模型。",
   "licenseSummary": {
     "CC0 1.0": {
-      "count": 15,
+      "count": 13,
       "url": "https://creativecommons.org/publicdomain/zero/1.0/",
       "note": "公有領域，可自由使用與再分發，無需署名。"
     },
     "CC BY 3.0": {
-      "count": 7,
+      "count": 5,
       "url": "https://creativecommons.org/licenses/by/3.0/",
       "note": "必須署名；署名清單見本檔 attribution 欄位與遊戲內「資產與授權」説明。"
     }
   },
   "assets": [
-    {
-      "file": "acacia.glb",
-      "title": "Acacia",
-      "creator": "Poly by Google",
-      "source": "https://poly.pizza/m/0j86RMO4kQC",
-      "download": "https://static.poly.pizza/28d1b007-927a-4fbc-a3bf-1a38278dc73c.glb",
-      "license": "CC BY 3.0",
-      "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
-      "attribution": "Acacia by Poly by Google via Poly Pizza, licensed under CC BY 3.0.",
-      "sha256": "735aa1b5cd9911359f4f85241c80d99134bed72d4f66603afe737526f2084b83",
-      "bytes": 3726676,
-      "verification": "SHA-256 與 Poly Pizza 原始 GLB 下載檔完全一致",
-      "changes": "直接使用原始 GLB，未修改幾何與貼圖。"
-    },
     {
       "file": "adventurer.glb",
       "title": "Adventurer",
@@ -40,20 +26,6 @@
       "attribution": "Adventurer by Quaternius via Poly Pizza, CC0 1.0.",
       "sha256": "4a8639cd8eee9d8a150464edc25eb0536ced464790704a64e40c8620d99f66db",
       "bytes": 1944116,
-      "verification": "SHA-256 與 Poly Pizza 原始 GLB 下載檔完全一致",
-      "changes": "直接使用原始 GLB，未修改幾何與貼圖。"
-    },
-    {
-      "file": "baobab.glb",
-      "title": "Boab",
-      "creator": "Poly by Google",
-      "source": "https://poly.pizza/m/8Tmb--j8Fwo",
-      "download": "https://static.poly.pizza/ca95a881-1fe7-4d11-87f1-db1da784f919.glb",
-      "license": "CC BY 3.0",
-      "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
-      "attribution": "Boab by Poly by Google via Poly Pizza, licensed under CC BY 3.0.",
-      "sha256": "bd920f08a58f2d4a8607d127ef47df065e9169bec9f3b95099206c6b3bf07533",
-      "bytes": 3710952,
       "verification": "SHA-256 與 Poly Pizza 原始 GLB 下載檔完全一致",
       "changes": "直接使用原始 GLB，未修改幾何與貼圖。"
     },
@@ -198,20 +170,6 @@
       "changes": "直接使用原始 GLB，未修改幾何與貼圖。"
     },
     {
-      "file": "savanna_tree.glb",
-      "title": "Tree from the savanna",
-      "creator": "hat_my_guy",
-      "source": "https://poly.pizza/m/uLxXsCfYb7",
-      "download": "https://static.poly.pizza/bae48a47-b895-4183-b1cc-ecdf621fa501.glb",
-      "license": "CC0 1.0",
-      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
-      "attribution": "Tree from the savanna by hat_my_guy via Poly Pizza, CC0 1.0.",
-      "sha256": "beb62e16c3262351bbf8a1f2c57ef5d814e2a00814336fa95bb0a35a33752b75",
-      "bytes": 65360,
-      "verification": "SHA-256 與 Poly Pizza 原始 GLB 下載檔完全一致",
-      "changes": "直接使用原始 GLB，未修改幾何與貼圖。"
-    },
-    {
       "file": "school.glb",
       "title": "Schoolhouse",
       "creator": "Poly by Google",
@@ -282,20 +240,6 @@
       "changes": "直接使用原始 GLB，未修改幾何與貼圖。"
     },
     {
-      "file": "tree.glb",
-      "title": "Trees",
-      "creator": "Quaternius",
-      "source": "https://poly.pizza/m/etFGNvsiFv",
-      "download": "https://static.poly.pizza/53a83125-e16a-4024-b8f6-1e72679c7ddf.glb",
-      "license": "CC0 1.0",
-      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
-      "attribution": "Trees by Quaternius via Poly Pizza, CC0 1.0.",
-      "sha256": "2dc587f401a3a86e0e1ee0bb95b4a0293b620b445a26278fcf55b5b68b40b097",
-      "bytes": 3408276,
-      "verification": "SHA-256 與 Poly Pizza 原始 GLB 下載檔完全一致",
-      "changes": "直接使用原始 GLB，未修改幾何與貼圖。"
-    },
-    {
       "file": "well.glb",
       "title": "Well",
       "creator": "Quaternius",
@@ -345,6 +289,26 @@
       "file": "Soldier.glb",
       "status": "removed-unused-unlicensed",
       "reason": "SHA-256 與 three.js 官方範例 examples/models/gltf/Soldier.glb 完全一致；範例註記「model from mixamo.com」(Adobe Mixamo)。Mixamo 條款對單獨再分發原始模型檔有限制，且本遊戲從未引用，故移除以降低再分發風險。"
+    },
+    {
+      "file": "tree.glb",
+      "status": "removed-replaced-by-procedural-cactus",
+      "reason": "薩赫勒屬半乾旱區，景觀不應出現喬木。依使用者要求將場景中所有樹（tree.glb、acacia.glb、savanna_tree.glb、baobab.glb）移除，改以程序化自帶的仙人掌（柱體＋分枝，CapsuleGeometry）取代，包含散布仙人掌與村莊集會地標。無外部 GLB 依賴，必定能渲染，亦免去約 9 MB 模型下載。"
+    },
+    {
+      "file": "acacia.glb",
+      "status": "removed-replaced-by-procedural-cactus",
+      "reason": "同上：薩赫勒場景去喬木化，以程序化仙人掌取代。原 Acacia（CC BY 3.0，需署名）已自預載、場景與遊戲內署名移除。"
+    },
+    {
+      "file": "savanna_tree.glb",
+      "status": "removed-replaced-by-procedural-cactus",
+      "reason": "同上：薩赫勒場景去喬木化，以程序化仙人掌取代。"
+    },
+    {
+      "file": "baobab.glb",
+      "status": "removed-replaced-by-procedural-cactus",
+      "reason": "同上：原村莊「集會老樹」地標改以巨型程序化仙人掌取代，對應故事與 UI 中的「集會樹／老樹」稱呼一併改為「集會仙人掌／老仙人掌」。"
     }
   ],
   "notes": [

@@ -278,7 +278,7 @@
    * 三處呈現：小地圖標記＋資訊卡、全屏世界地圖、世界上方浮空標籤。
    */
   const SITE_META = {
-    village: { kind: '村落', color: '#e8871e', desc: '村民聚居之處，集會樹下討論農事與畜牧季移。' },
+    village: { kind: '村落', color: '#e8871e', desc: '村民聚居之處，集會仙人掌下討論農事與畜牧季移。' },
     farm:    { kind: '農地', color: '#5c9a3f', desc: '種植作物的耕地；休耕期長短直接影響土壤養分。' },
     demo:    { kind: '耕地', color: '#7ab648', desc: '練習覆蓋耕作、等高耕作等土壤保育方式的耕地。' },
     well:    { kind: '水源', color: '#3b8fb5', desc: '抽取地下水供人畜飲用；井旁牲畜聚集易致過度放牧。' },
@@ -1021,7 +1021,7 @@
       '並逐一以 SHA-256 比對原始下載檔確認來源。' +
       '<b>Quaternius</b> 與 <b>hat_my_guy</b> 的模型為 <a href="https://creativecommons.org/publicdomain/zero/1.0/" target="_blank" rel="noopener">CC0 1.0</a>（公有領域）。' +
       '下列模型採 <a href="https://creativecommons.org/licenses/by/3.0/" target="_blank" rel="noopener">CC BY 3.0</a>，特此署名：' +
-      '<b>Poly by Google</b>（Acacia、Boab、Schoolhouse）、<b>jeremy</b>（Camel、Goat）、' +
+      '<b>Poly by Google</b>（Schoolhouse）、<b>jeremy</b>（Camel、Goat）、' +
       '<b>madtrollstudio</b>（Cow）、<b>Kawin Kongwong</b>（Bang Luang Mosque）。' +
       '完整作者、來源、授權、SHA-256 及修改記錄見 <code>vendor/models/ATTRIBUTION.json</code>。</p>';
     const btns = [

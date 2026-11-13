@@ -242,14 +242,54 @@
     return g;
   }
 
-  /* ============ 樹 ============ */
-  /* kinds: 0 傘形喬木 1 巨幹大樹 2 高幹樹 3 灌木
-   * （這裏只區分程序化幾何外形，不指涉筆記以外的特定樹種） */
-  function placeTrees(scene, rng) {
-    const treeSpots = [];
+  /* ============ 仙人掌 ============ */
+  /* kinds: 0 高柱仙人掌 1 巨型仙人掌 2 近水高柱 3 矮桶型仙人掌
+   * 薩赫勒屬半乾旱區，景觀不應出現喬木；以抗旱的仙人掌取代原先的樹。
+   * 程序化自帶模型（柱體＋分枝），無外部 GLB 依賴，必定能渲染。 */
+  function makeCactus(rng, kind) {
+    const g = new THREE.Group();
+    const mat = new THREE.MeshLambertMaterial({ color: COLOR.cactus });
+    let r, H, nArms, armScale;
+    if (kind === 3) {            // 矮桶型仙人掌
+      r = 0.5 + rng() * 0.28; H = 0.9 + rng() * 0.9; nArms = 0; armScale = 0;
+    } else if (kind === 1) {     // 巨型仙人掌
+      r = 0.55 + rng() * 0.12; H = 5.0 + rng() * 1.6; nArms = 2 + (rng() < 0.5 ? 1 : 0); armScale = 1;
+    } else if (kind === 2) {     // 近水高柱
+      r = 0.36 + rng() * 0.1; H = 3.6 + rng() * 1.8; nArms = (rng() < 0.6 ? 1 : 0) + (rng() < 0.4 ? 1 : 0); armScale = 0.85;
+    } else {                     // 0 高柱仙人掌
+      r = 0.34 + rng() * 0.12; H = 2.8 + rng() * 2.0; nArms = (rng() < 0.5 ? 0 : 1) + (rng() < 0.45 ? 1 : 0); armScale = 0.8;
+    }
+    const body = new THREE.Mesh(new THREE.CapsuleGeometry(r, H, 5, 12), mat);
+    body.position.y = H / 2 + r;          // 柱體底端貼地
+    body.castShadow = true; body.receiveShadow = true;
+    g.add(body);
+    // 分枝：先水平伸出，再向上彎起（典型薩瓜羅仙人掌外形）
+    for (let i = 0; i < nArms; i++) {
+      const arm = new THREE.Group();
+      const aR = r * (0.42 + rng() * 0.12) * armScale;
+      const aOut = (0.5 + rng() * 0.6) * armScale + 0.2;
+      const aUp = (0.9 + rng() * 1.5) * armScale;
+      const horiz = new THREE.Mesh(new THREE.CapsuleGeometry(aR, aOut, 4, 9), mat);
+      horiz.rotation.z = Math.PI / 2;
+      horiz.position.set(aOut / 2, 0, 0);
+      horiz.castShadow = true;
+      const vert = new THREE.Mesh(new THREE.CapsuleGeometry(aR, aUp, 4, 9), mat);
+      vert.position.set(aOut, aUp / 2 + aR, 0);
+      vert.castShadow = true;
+      arm.add(horiz, vert);
+      const side = (i % 2 === 0) ? 1 : -1;
+      arm.position.set(0, r + H * (0.3 + rng() * 0.45), 0);
+      arm.rotation.y = side * (Math.PI / 2) + (rng() * 0.4 - 0.2);
+      g.add(arm);
+    }
+    return g;
+  }
+
+  function placeCacti(scene, rng) {
+    const spots = [];
     const N = 300;
     let guard = 0;
-    while (treeSpots.length < N && guard < N * 40) {
+    while (spots.length < N && guard < N * 40) {
       guard++;
       const x = (rng() - 0.5) * WORLD.size * 0.96;
       const z = (rng() - 0.5) * WORLD.size * 0.96;
@@ -269,84 +309,22 @@
       if (nearSite) continue;
       let kind = 0;
       const r = rng();
-      if (a < 0.34 && r < 0.12) kind = 1;          // 巨幹大樹（南部）
+      if (a < 0.34 && r < 0.12) kind = 1;          // 巨型仙人掌（南部較濕潤）
       else if (Math.sqrt(dist2(x, z, WORLD.water.x, WORLD.water.z)) < 55 && r < 0.4) kind = 2;
-      else if (a > 0.62 && r < 0.55) kind = 3;     // 灌木
-      treeSpots.push({ x, z, kind, a });
+      else if (a > 0.62 && r < 0.55) kind = 3;     // 矮桶型（乾旱區）
+      spots.push({ x, z, kind, a });
     }
 
-    const trunkGeo = new THREE.CylinderGeometry(0.22, 0.34, 1, 6);
-    trunkGeo.translate(0, 0.5, 0);
-    const canopyGeo = new THREE.IcosahedronGeometry(1, 1);
-    const coneGeo = new THREE.ConeGeometry(1, 1, 7);
-    coneGeo.translate(0, 0.5, 0);
-    const bushGeo = new THREE.IcosahedronGeometry(1, 0);
-
-    const trunkMat = new THREE.MeshLambertMaterial({ color: COLOR.trunk });
-    const canopyMat = new THREE.MeshLambertMaterial({ color: COLOR.canopy });
-    const palmMat = new THREE.MeshLambertMaterial({ color: 0x5e7d34 });
-    const bushMat = new THREE.MeshLambertMaterial({ color: COLOR.scrub });
-    World._canopyMats.push(canopyMat, palmMat, bushMat);
-
-    const counts = { 0: 0, 1: 0, 2: 0, 3: 0 };
-    treeSpots.forEach(t => counts[t.kind]++);
-
-    /* ---- 真實 GLB 樹（來自 Poly Pizza / Quaternius，CC0）---- */
-    const gltfTree = S.Models.get('vendor/models/tree.glb');
-    const treeNodes = [];
-    if (gltfTree) {
-      gltfTree.scene.traverse(o => { if (/^NormalTree_\d+$/.test(o.name || '')) treeNodes.push(o); });
-      treeNodes.sort((a, b) => a.name.localeCompare(b.name));
+    for (const t of spots) {
+      const c = makeCactus(rng, t.kind);
+      c.position.set(t.x, heightAt(t.x, t.z), t.z);
+      c.rotation.y = rng() * 6.283;
+      c.scale.setScalar(0.9 + rng() * 0.3);
+      scene.add(c);
+      if (t.kind === 1) World.obstacles.push({ x: t.x, z: t.z, r: 1.6 });
+      else if (t.kind === 0 && rng() < 0.3) World.obstacles.push({ x: t.x, z: t.z, r: 1.0 });
     }
-    // 增加薩赫勒樹種變體；模型共享 GLB 幾何/材質，場景中僅克隆節點。
-    ['vendor/models/acacia.glb', 'vendor/models/savanna_tree.glb'].forEach(path => {
-      const variant = S.Models.get(path);
-      if (variant) treeNodes.push(variant.scene);
-    });
-
-    const placeOneTree = (srcNode, x, z, targetH) => {
-      let node;
-      try { node = window.SkeletonUtils ? window.SkeletonUtils.clone(srcNode) : srcNode.clone(true); }
-      catch (e) { node = srcNode.clone(true); }
-      node.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
-      const box = new THREE.Box3().setFromObject(node);
-      const sz = new THREE.Vector3(); box.getSize(sz);
-      node.scale.setScalar(targetH / (sz.y || targetH));
-      const box2 = new THREE.Box3().setFromObject(node);
-      node.position.set(x, heightAt(x, z) - box2.min.y, z);
-      node.rotation.y = rng() * 6.283;
-      scene.add(node);
-    };
-
-    // 模型缺失時的程序化降級（極少觸發）
-    if (!treeNodes.length) {
-      const tMat = new THREE.MeshLambertMaterial({ color: COLOR.trunk });
-      const cMat = new THREE.MeshLambertMaterial({ color: COLOR.canopy });
-      treeSpots.forEach(t => {
-        const g = new THREE.Group();
-        const tg = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.28, 3.4, 6), tMat); tg.position.y = 1.7; tg.castShadow = true;
-        const cg = new THREE.Mesh(new THREE.IcosahedronGeometry(1.8, 0), cMat); cg.position.y = 3.6; cg.castShadow = true;
-        g.add(tg, cg); g.position.set(t.x, heightAt(t.x, t.z), t.z); scene.add(g);
-      });
-      return treeSpots;
-    }
-
-    let ti = 0;
-    for (const t of treeSpots) {
-      const src = treeNodes[ti++ % treeNodes.length];
-      if (t.kind === 0) {        // 傘形喬木
-        placeOneTree(src, t.x, t.z, 4.0 + rng() * 2.4);
-        if (rng() < 0.3) World.obstacles.push({ x: t.x, z: t.z, r: 1.1 });
-      } else if (t.kind === 1) { // 巨幹大樹
-        placeOneTree(src, t.x, t.z, 5.6 + rng() * 1.4);
-        World.obstacles.push({ x: t.x, z: t.z, r: 1.9 });
-      } else if (t.kind === 2) { // 高幹樹
-        placeOneTree(src, t.x, t.z, 5.2 + rng() * 2.0);
-      } else {                   // 灌木：用最小的樹縮小
-        placeOneTree(treeNodes[treeNodes.length - 1], t.x, t.z, 1.6 + rng() * 1.0);
-      }
-    }
-    return treeSpots;
+    return spots;
   }
 
   /* ============ 草叢 / 石頭 ============ */
@@ -539,8 +517,7 @@
       stall:    S.Models.get('vendor/models/stall.glb') || S.Models.get('vendor/models/hut.glb'),
       mosque:   S.Models.get('vendor/models/mosque.glb'),
       school:   S.Models.get('vendor/models/school.glb'),
-      tent:     S.Models.get('vendor/models/tent.glb'),
-      baobab:   S.Models.get('vendor/models/baobab.glb')
+      tent:     S.Models.get('vendor/models/tent.glb')
     };
 
     // 把 GLB 節點歸一化到目標尺寸、腳底對齊地面後襬放。
@@ -622,22 +599,15 @@
       scene.add(g);
     });
 
-    // 集會老樹：真實樹木模型優先，否則程序化
+    // 集會老仙人掌：村裏最高的仙人掌，村民在它腳下開會
+    // （薩赫勒半乾旱，不以喬木為地標；以巨型仙人掌取代原先的集會老樹）
     const gx = vil.x + 2, gz = vil.z + 2;
-    if (M.baobab) {
-      placeModel(M.baobab, gx, gz, 9.5, 9, 0);
-      World.obstacles.push({ x: gx, z: gz, r: 3.6 });
-    } else {
-      const gt = new THREE.Group();
-      const trunk = new THREE.Mesh(new THREE.CylinderGeometry(2.6, 3.6, 7, 10), new THREE.MeshLambertMaterial({ color: COLOR.baobab }));
-      trunk.position.y = 3.5; trunk.castShadow = true;
-      const crown = new THREE.Mesh(new THREE.IcosahedronGeometry(6.4, 1), new THREE.MeshLambertMaterial({ color: 0x5f7c36 }));
-      crown.position.y = 7.6; crown.scale.set(1, 0.62, 1); crown.castShadow = true;
-      gt.add(trunk); gt.add(crown);
-      gt.position.set(gx, heightAt(gx, gz), gz);
-      scene.add(gt);
-      World.obstacles.push({ x: gx, z: gz, r: 3.4 });
-    }
+    const giant = makeCactus(rng, 1);
+    giant.scale.setScalar(1.7);
+    giant.position.set(gx, heightAt(gx, gz), gz);
+    giant.rotation.y = 0.4;
+    scene.add(giant);
+    World.obstacles.push({ x: gx, z: gz, r: 2.6 });
   }
 
   /* ============ 水井 ============ */
@@ -990,7 +960,7 @@
     const steps = [
       ['正在隆起薩赫勒的土地…', () => { this.ground = buildGround(); this.scene.add(this.ground); }],
       ['正在灌注水源地的水…', () => { this.scene.add(buildWater()); }],
-      ['正在種下灌木與有刺樹木…', () => { placeTrees(this.scene, rng); }],
+      ['正在種下仙人掌…', () => { placeCacti(this.scene, rng); }],
       ['正在鋪開草叢與礫石…', () => { placeGroundCover(this.scene, rng); }],
       ['正在砌起泥磚的村莊…', () => { makeBuildings(this.scene, rng); }],
       ['正在打一口水井…', () => { makeWell(this.scene); }],

@@ -67,17 +67,17 @@
     const ld = document.getElementById('ld-progress');
     const tip = document.getElementById('ld-tip');
 
-    // 1) 預加載 GLB 模型（玩家農夫 + 牲畜 + 村民角色 + 樹/屋）
+    // 1) 預加載 GLB 模型（玩家農夫 + 牲畜 + 村民角色 + 屋）
     const MODEL_LIST = [
       'vendor/models/farmer.glb',
       'vendor/models/cow.glb', 'vendor/models/bull.glb', 'vendor/models/goat.glb',
       'vendor/models/sheep.glb', 'vendor/models/camel.glb',
       'vendor/models/woman.glb', 'vendor/models/adventurer.glb',
-      'vendor/models/tree.glb', 'vendor/models/hut.glb',
-      'vendor/models/mosque.glb', 'vendor/models/tent.glb', 'vendor/models/baobab.glb',
+      'vendor/models/hut.glb',
+      'vendor/models/mosque.glb', 'vendor/models/tent.glb',
       'vendor/models/school.glb', 'vendor/models/stall.glb', 'vendor/models/well.glb',
-      // 開放授權場景變體：薩赫勒樹、草叢、泥屋與不同外觀的牛。
-      'vendor/models/acacia.glb', 'vendor/models/savanna_tree.glb', 'vendor/models/tall_grass.glb',
+      // 開放授權場景變體：草叢、泥屋與不同外觀的牛。
+      'vendor/models/tall_grass.glb',
       'vendor/models/hut_variant_b.glb',
       'vendor/models/cow_quaternius.glb', 'vendor/models/cow_madtroll.glb'
     ];

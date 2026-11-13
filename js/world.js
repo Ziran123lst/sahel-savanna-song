@@ -242,92 +242,6 @@
     return g;
   }
 
-  /* ============ 仙人掌 ============ */
-  /* kinds: 0 高柱仙人掌 1 巨型仙人掌 2 近水高柱 3 矮桶型仙人掌
-   * 薩赫勒屬半乾旱區，景觀不應出現喬木；以抗旱的仙人掌取代原先的樹。
-   * 程序化自帶模型（柱體＋分枝），無外部 GLB 依賴，必定能渲染。 */
-  function makeCactus(rng, kind) {
-    const g = new THREE.Group();
-    const mat = new THREE.MeshLambertMaterial({ color: COLOR.cactus });
-    let r, H, nArms, armScale;
-    if (kind === 3) {            // 矮桶型仙人掌
-      r = 0.5 + rng() * 0.28; H = 0.9 + rng() * 0.9; nArms = 0; armScale = 0;
-    } else if (kind === 1) {     // 巨型仙人掌
-      r = 0.55 + rng() * 0.12; H = 5.0 + rng() * 1.6; nArms = 2 + (rng() < 0.5 ? 1 : 0); armScale = 1;
-    } else if (kind === 2) {     // 近水高柱
-      r = 0.36 + rng() * 0.1; H = 3.6 + rng() * 1.8; nArms = (rng() < 0.6 ? 1 : 0) + (rng() < 0.4 ? 1 : 0); armScale = 0.85;
-    } else {                     // 0 高柱仙人掌
-      r = 0.34 + rng() * 0.12; H = 2.8 + rng() * 2.0; nArms = (rng() < 0.5 ? 0 : 1) + (rng() < 0.45 ? 1 : 0); armScale = 0.8;
-    }
-    const body = new THREE.Mesh(new THREE.CapsuleGeometry(r, H, 5, 12), mat);
-    body.position.y = H / 2 + r;          // 柱體底端貼地
-    body.castShadow = true; body.receiveShadow = true;
-    g.add(body);
-    // 分枝：先水平伸出，再向上彎起（典型薩瓜羅仙人掌外形）
-    for (let i = 0; i < nArms; i++) {
-      const arm = new THREE.Group();
-      const aR = r * (0.42 + rng() * 0.12) * armScale;
-      const aOut = (0.5 + rng() * 0.6) * armScale + 0.2;
-      const aUp = (0.9 + rng() * 1.5) * armScale;
-      const horiz = new THREE.Mesh(new THREE.CapsuleGeometry(aR, aOut, 4, 9), mat);
-      horiz.rotation.z = Math.PI / 2;
-      horiz.position.set(aOut / 2, 0, 0);
-      horiz.castShadow = true;
-      const vert = new THREE.Mesh(new THREE.CapsuleGeometry(aR, aUp, 4, 9), mat);
-      vert.position.set(aOut, aUp / 2 + aR, 0);
-      vert.castShadow = true;
-      arm.add(horiz, vert);
-      const side = (i % 2 === 0) ? 1 : -1;
-      arm.position.set(0, r + H * (0.3 + rng() * 0.45), 0);
-      arm.rotation.y = side * (Math.PI / 2) + (rng() * 0.4 - 0.2);
-      g.add(arm);
-    }
-    return g;
-  }
-
-  function placeCacti(scene, rng) {
-    const spots = [];
-    const N = 300;
-    let guard = 0;
-    while (spots.length < N && guard < N * 40) {
-      guard++;
-      const x = (rng() - 0.5) * WORLD.size * 0.96;
-      const z = (rng() - 0.5) * WORLD.size * 0.96;
-      if (Math.abs(x) > 216 || Math.abs(z) > 216) continue;
-      const a = aridityAt(x, z);
-      const dr = distToRoad(x, z);
-      // 密度隨乾旱度下降
-      const density = clamp(1.15 - a * 1.25, 0.03, 1);
-      if (rng() > density * 0.55) continue;
-      if (dr < 4.5 && rng() > 0.12) continue;
-      // 離建築遠一點
-      let nearSite = false;
-      for (const s of SITES) {
-        if ((s.kind === 'village' || s.kind === 'market' || s.kind === 'camp') &&
-            Math.sqrt(dist2(x, z, s.x, s.z)) < s.r * 0.55) { nearSite = true; break; }
-      }
-      if (nearSite) continue;
-      let kind = 0;
-      const r = rng();
-      if (a < 0.34 && r < 0.12) kind = 1;          // 巨型仙人掌（南部較濕潤）
-      else if (Math.sqrt(dist2(x, z, WORLD.water.x, WORLD.water.z)) < 55 && r < 0.4) kind = 2;
-      else if (a > 0.62 && r < 0.55) kind = 3;     // 矮桶型（乾旱區）
-      spots.push({ x, z, kind, a });
-    }
-
-    for (const t of spots) {
-      const c = makeCactus(rng, t.kind);
-      c.position.set(t.x, heightAt(t.x, t.z), t.z);
-      c.rotation.y = rng() * 6.283;
-      // 原尺寸偏大；整体缩至约 55%，让仙人掌更像稀疏的地表植被
-      c.scale.setScalar(0.5 + rng() * 0.12);
-      scene.add(c);
-      if (t.kind === 1) World.obstacles.push({ x: t.x, z: t.z, r: 0.9 });
-      else if (t.kind === 0 && rng() < 0.3) World.obstacles.push({ x: t.x, z: t.z, r: 0.6 });
-    }
-    return spots;
-  }
-
   /* ============ 草叢 / 石頭 ============ */
   function placeGroundCover(scene, rng) {
     // 草：只在較濕潤區
@@ -600,15 +514,6 @@
       scene.add(g);
     });
 
-    // 集會老仙人掌：村裏最高的仙人掌，村民在它腳下開會
-    // （薩赫勒半乾旱，不以喬木為地標；以巨型仙人掌取代原先的集會老樹）
-    const gx = vil.x + 2, gz = vil.z + 2;
-    const giant = makeCactus(rng, 1);
-    giant.scale.setScalar(0.9);
-    giant.position.set(gx, heightAt(gx, gz), gz);
-    giant.rotation.y = 0.4;
-    scene.add(giant);
-    World.obstacles.push({ x: gx, z: gz, r: 1.4 });
   }
 
   /* ============ 水井 ============ */
@@ -961,7 +866,6 @@
     const steps = [
       ['正在隆起薩赫勒的土地…', () => { this.ground = buildGround(); this.scene.add(this.ground); }],
       ['正在灌注水源地的水…', () => { this.scene.add(buildWater()); }],
-      ['正在種下仙人掌…', () => { placeCacti(this.scene, rng); }],
       ['正在鋪開草叢與礫石…', () => { placeGroundCover(this.scene, rng); }],
       ['正在砌起泥磚的村莊…', () => { makeBuildings(this.scene, rng); }],
       ['正在打一口水井…', () => { makeWell(this.scene); }],

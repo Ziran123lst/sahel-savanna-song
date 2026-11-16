@@ -280,11 +280,35 @@
     this.taskPoint = null;
   };
 
+  // 任務欄的人名一律從 NPCS 規格取值，和世界地圖／頭頂名牌共用同一個來源。
+  // 這樣即使任務描述漏寫名字，或舊描述仍保留了 NPC id／舊拼法，也不會和地圖標示不一致。
+  Game.taskDescription = function (step) {
+    let text = String(step.desc || step.k || '');
+    if (step.k !== 'talk' || !step.npc) return text;
+    const spec = NPCS.find(n => n.id === step.npc);
+    if (!spec || !spec.name) return text;
+
+    // 將任務描述中可能出現的 NPC id、正式名或其他 NPC 正式名
+    // 統一成這個步驟的正式名，避免「Brahim／Brahime」一類的顯示分歧。
+    const aliases = [step.npc, spec.name].concat(NPCS.map(n => n.name));
+    aliases.sort((a, b) => b.length - a.length).forEach(alias => {
+      if (!alias || alias.toLocaleLowerCase() === spec.name.toLocaleLowerCase()) return;
+      const escaped = alias.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      // 只替換完整人名，避免把 Brahim 代換時誤傷 Brahime，或把 Idrissa 變成 IdrIdrissa。
+      const re = new RegExp('(^|[^A-Za-zÀ-ÿ])' + escaped + '(?=$|[^A-Za-zÀ-ÿ])', 'gi');
+      text = text.replace(re, (_, prefix) => prefix + spec.name);
+    });
+    if (!text.toLocaleLowerCase().includes(spec.name.toLocaleLowerCase())) {
+      text = '與 ' + spec.name + ' 交談：' + text;
+    }
+    return text;
+  };
+
   Game.refreshObjective = function () {
     const act = ACTS[this.actIndex];
     if (!act) return;
     const steps = act.steps.map((s, i) => ({
-      text: (s.desc || s.k),
+      text: this.taskDescription(s),
       done: i < this.stepIndex
     }));
     UI.objective(act.chapter + ' · ' + (this.actIndex + 1) + '/' + ACTS.length, act.title, steps);

@@ -34,8 +34,11 @@
     c.fillText(role, cv.width / 2, 92);
     const tex = new THREE.CanvasTexture(cv);
     tex.colorSpace = THREE.SRGBColorSpace;
-    const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: true });
+    const mat = new THREE.SpriteMaterial({
+      map: tex, transparent: true, depthTest: false, depthWrite: false
+    });
     const sp = new THREE.Sprite(mat);
+    sp.renderOrder = 12;               // 永遠畫在人物模型之上，不被頭巾／帽子遮住
     sp.scale.set(3.0, 0.75, 1);
     return sp;
   }
@@ -177,7 +180,7 @@
       g.rotation.y = Math.atan2(0 - cl.x, 0 - cl.z) + (rng() - 0.5) * 0.6;
 
       const label = makeLabel(spec.name, spec.role);
-      label.position.y = g.userData.height + 0.28;
+      label.position.y = g.userData.height + 0.72;
       g.add(label);
 
       // 交互提示標記
@@ -248,7 +251,7 @@
       const near = Math.sqrt(dist2(playerPos.x, playerPos.z, n.x, n.z)) < INTERACTION_RADIUS;
       n.marker.visible = near && !!interactEnabled;
       n.marker.rotation.y += dt * 2.2;
-      n.marker.position.y = n.group.userData.height + 0.20 + Math.sin(n.phase * 2) * 0.10;
+      n.marker.position.y = n.group.userData.height + 0.16 + Math.sin(n.phase * 2) * 0.08;
       if (p && !n.sitting) {
         // 方塊人：手臂/軀幹輕微擺動
         const sw = Math.sin(n.phase * 0.55) * 0.05;
@@ -273,6 +276,8 @@
       n.label.visible = d < 60;
       const sc = clamp(0.6 + d * 0.055, 0.8, 2.2);
       n.label.scale.set(3.0 * sc, 0.75 * sc, 1);
+      // 名牌放大時下緣會往下延伸；同步抬高，讓下緣永遠比人物頭頂高 0.42m
+      n.label.position.y = n.group.userData.height + 0.42 + 0.375 * sc;
     }
   };
 

@@ -513,6 +513,46 @@ kbd{display:inline-block;background:var(--sun);color:#2a1a10;border-radius:5px;p
 .wm-pin.nav .wm-pin-name{outline:2px solid var(--sims-dark);box-shadow:0 0 0 3px rgba(31,143,125,.28)}
 .wm-card.nav{box-shadow:0 0 0 2px rgba(31,143,125,.42),0 2px 8px rgba(0,0,0,.08)}
 .wm-card.nav .wc-go{background:#146d5f}
+/* 世界地圖：四方位羅盤與季候風資訊 */
+.wm-compass{position:absolute;inset:0;pointer-events:none;z-index:8}
+.wm-compass span{position:absolute;font-size:11px;font-weight:800;letter-spacing:1px;
+  color:#fff;text-shadow:0 1px 4px rgba(0,0,0,.9);white-space:nowrap;
+  background:rgba(20,38,32,.62);border:1px solid rgba(255,255,255,.38);
+  border-radius:999px;padding:2px 9px}
+.wm-compass b{font-size:9px;opacity:.72;font-weight:600}
+.wm-compass .wc-n{top:7px;left:50%;transform:translateX(-50%)}
+.wm-compass .wc-s{bottom:7px;left:50%;transform:translateX(-50%)}
+.wm-compass .wc-e{right:7px;top:50%;transform:translateY(-50%)}
+.wm-compass .wc-w{left:7px;top:50%;transform:translateY(-50%)}
+.wm-wind{position:absolute;left:10px;top:10px;z-index:9;pointer-events:none;
+  width:186px;box-sizing:border-box;background:rgba(18,34,29,.88);color:#f3ead2;
+  border:1px solid rgba(255,255,255,.32);border-radius:11px;padding:9px 11px;
+  box-shadow:0 5px 18px rgba(0,0,0,.45)}
+.wm-wind .ww-h{font-size:10px;letter-spacing:2px;opacity:.72;margin-bottom:4px}
+.wm-wind .ww-main{display:flex;align-items:center;gap:8px}
+.wm-wind .ww-arrow{font-size:29px;line-height:1;color:#ffd477;text-shadow:0 0 12px rgba(255,212,119,.6)}
+.wm-wind .ww-name{font-size:13px;font-weight:800;line-height:1.35}
+.wm-wind .ww-dir{font-size:10px;opacity:.85;margin-top:4px}
+.wm-wind .ww-nature{color:#ffd477;font-weight:700}
+.wm-wind .ww-desc{font-size:10px;line-height:1.6;opacity:.82;margin-top:6px;
+  border-top:1px dashed rgba(255,255,255,.22);padding-top:5px}
+/* 小地圖：季候風列與閃爍主線目標 */
+.mm-wind{text-align:center;font-size:10px;line-height:1.5;opacity:.92;margin-top:2px;
+  color:#ffe2a8;text-shadow:0 1px 3px rgba(0,0,0,.95)}
+.mm-main{text-align:center;font-size:11px;font-weight:800;margin-top:3px;
+  color:#17300f;background:#a8f08a;border:1px solid #4f9e46;border-radius:999px;
+  padding:2px 8px;box-shadow:0 2px 8px rgba(0,0,0,.55);
+  animation:mmBlink .9s ease-in-out infinite}
+.mm-main.hidden{display:none}
+@keyframes mmBlink{
+  0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(168,240,138,.8),0 2px 8px rgba(0,0,0,.55)}
+  50%{opacity:.4;box-shadow:0 0 0 5px rgba(168,240,138,0),0 2px 8px rgba(0,0,0,.55)}}
+/* 世界地圖主線人物圖釘同步閃爍 */
+.wm-npc-pin.main i{animation:wmMainBlink .9s ease-in-out infinite}
+@keyframes wmMainBlink{
+  0%,100%{box-shadow:0 0 0 4px rgba(143,208,122,.6)}
+  50%{box-shadow:0 0 0 9px rgba(143,208,122,.08)}}
+
 @media (max-width:860px){
   .wm-body{flex-direction:column;align-items:center}
   .wm-map{width:min(80vw,420px);height:min(80vw,420px)}

@@ -262,6 +262,7 @@
     this._wmBase = this._renderMinimapBase(520, false);
     // 導航箭頭元素
     this._navArrow = $('nav-arrow');
+    this.updateWind(true);          // 方位與季候風隨季節標示
   };
 
   /* 環境音樂快捷開關（HUD 的 ♫ 按鍵與 M 鍵共用） */
@@ -298,6 +299,47 @@
   const siteMeta = s => SITE_META[s.kind] || { kind: '地段', color: '#57c9b0', desc: '' };
   const sitePct = v => (v + S.WORLD.half) / S.WORLD.size * 100;
   const siteDist = (p, s) => p ? Math.round(Math.hypot(p.x - s.x, p.z - s.z)) : 0;
+
+  /* ---------------- 方位與季候風 ----------------
+   * 地圖 +x 為東、+z 為南（與小地圖原本的「北 ▲」一致）：東北＝右上、西南＝左下。
+   * 旱季：東北信風（哈馬丹風）由撒哈拉吹向幾內亞灣，乾燥、夾帶沙塵；
+   * 雨季：西南季風由幾內亞灣吹入內陸，暖濕，形成雨季降雨。
+   * 名稱與季節連動，世界地圖／小地圖共用同一份資料，不會出現兩邊不一致。 */
+  const WIND = {
+    dry: {
+      name: '東北信風（哈馬丹風）', short: '東北信風', season: '旱季',
+      from: '東北', to: '西南', nature: '乾燥 · 夾帶沙塵', arrow: '↙',
+      desc: '由撒哈拉沙漠吹向幾內亞灣，乾燥少雨、空氣中滿是細沙，是旱季的成因。'
+    },
+    rain: {
+      name: '西南季風', short: '西南季風', season: '雨季',
+      from: '西南', to: '東北', nature: '暖濕 · 帶來降雨', arrow: '↗',
+      desc: '由幾內亞灣吹入內陸，暖濕氣流抬升成雨，是雨季降雨的來源。'
+    }
+  };
+  UI.windInfo = function () {
+    const s = this.game && this.game.state ? this.game.state.season : 'dry';
+    return WIND[s === 'rain' ? 'rain' : 'dry'];
+  };
+  // 季節改變時才寫入 DOM，避免每幀重排
+  UI.updateWind = function (force) {
+    const w = this.windInfo();
+    const key = w.season + '|' + w.name;
+    if (!force && this._windKey === key) return;
+    this._windKey = key;
+    const box = $('wm-wind');
+    if (box) {
+      box.innerHTML =
+        '<div class="ww-h">🍃 季候風 · ' + w.season + '</div>' +
+        '<div class="ww-main"><span class="ww-arrow">' + w.arrow + '</span>' +
+        '<span class="ww-name">' + w.name + '</span></div>' +
+        '<div class="ww-dir">' + w.from + ' → ' + w.to +
+        ' · <span class="ww-nature">' + w.nature + '</span></div>' +
+        '<div class="ww-desc">' + w.desc + '</div>';
+    }
+    const mm = $('mm-wind');
+    if (mm) mm.textContent = '🍃 ' + w.short + ' ' + w.arrow + '　' + w.from + '→' + w.to;
+  };
 
   UI.buildSiteMarkers = function () {
     const wrap = $('mm-sites');
@@ -388,6 +430,7 @@
   /* ---------- 全屏世界地圖 ---------- */
   UI.worldMap = function () {
     if (this.mode && this.mode !== 'worldmap') return;
+    this.updateWind(true);
     const panel = $('world-map');
     if (!panel) return;
     const navId = this.game && this.game._mapTarget ? this.game._mapTarget.siteId : null;
@@ -863,6 +906,7 @@
     $('season-name').textContent = st.season === 'rain' ? '雨季' : '旱季';
     $('season-icon').textContent = st.season === 'rain' ? '🌧' : '☀';
     $('season-day').textContent = '第 ' + st.day + ' 天';
+    this.updateWind();               // 季節切換時同步季候風標示
   };
 
   UI.objective = function (chapter, title, steps) {
@@ -1232,6 +1276,12 @@
       '<p>小地圖上的菱形標記代表各個地段，把鼠標移上去會顯示用途與距離；草原上也會浮起地段名牌。' +
       '按 <b>B</b> 或點小地圖下方的 <b>⤢ 世界地圖</b> 可打開全屏地圖，' +
       '點「前往」把地段設為導航目標，跟着畫面上的箭頭走即可；抵達後會自動解除，再點一次同一地段也能取消。</p>' +
+      '<h2>方位與季候風</h2>' +
+      '<p>世界地圖四邊標示 <b>北／東／南／西</b>（上北下南、左西右東），地圖角落會按目前季節標示季候風：' +
+      '<b>旱季吹東北信風（哈馬丹風）</b>，由撒哈拉吹向幾內亞灣，乾燥並夾帶沙塵；' +
+      '<b>雨季吹西南季風</b>，由幾內亞灣吹入內陸，暖濕並帶來降雨。小地圖下方也會同步顯示。</p>' +
+      '<p style="margin-top:8px">小地圖上<b>一閃一閃的綠色圈與姓名標籤</b>，就是當前主線要找的人，' +
+      '並有虛線由你指向他；配合 <b>🎯 主線</b> 提示條，跟着走就不會找錯人。</p>' +
       '<h2>資產與授權</h2>' +
       '<p>場景模型全部來自 <a href="https://poly.pizza/" target="_blank" rel="noopener">Poly Pizza</a>，' +
       '並逐一以 SHA-256 比對原始下載檔確認來源。' +
@@ -1504,19 +1554,75 @@
       c.lineWidth = 1.6;
       c.beginPath(); c.arc(x, z, 5 + Math.sin(performance.now() / 260) * 1.6, 0, 6.283); c.stroke();
     });
-    // 可交談人物：白點＝一般人，綠色脈動圈＝當前主線要找的人
+    // 可交談人物：白點＝一般人；主線人物＝明顯閃爍的雙環＋姓名標籤＋虛線引導
     const mainId = this.currentMainNpc();
+    const mainNpc = mainId ? S.NPCS.find(n => n.id === mainId) : null;
+    const tNow = performance.now();
+    const pulse = (Math.sin(tNow / 260) + 1) / 2;                 // 0..1 擴散外圈
+    const blink = 0.35 + 0.65 * Math.abs(Math.sin(tNow / 380));  // 0.35..1 明暗閃爍
+
+    // 玩家 → 主線人物：細虛線引導
+    if (mainNpc) {
+      const [mx, mz] = toMM(mainNpc.x, mainNpc.z);
+      const [px0, pz0] = toMM(playerPos.x, playerPos.z);
+      c.save();
+      c.globalAlpha = 0.4 + 0.3 * blink;
+      c.strokeStyle = '#a8f08a'; c.lineWidth = 1.3;
+      c.setLineDash([3, 4]);
+      c.beginPath(); c.moveTo(px0, pz0); c.lineTo(mx, mz); c.stroke();
+      c.restore();
+    }
+
     S.NPCS.forEach(n => {
       const [x, z] = toMM(n.x, n.z);
       const main = n.id === mainId;
       if (main) {
-        c.strokeStyle = '#8fd07a'; c.lineWidth = 1.8;
-        c.beginPath(); c.arc(x, z, 5 + Math.sin(performance.now() / 260) * 1.4, 0, 6.283); c.stroke();
+        c.save();
+        c.globalAlpha = (1 - pulse) * 0.9;
+        c.strokeStyle = '#c6ffab'; c.lineWidth = 2.2;
+        c.beginPath(); c.arc(x, z, 5 + pulse * 10, 0, 6.283); c.stroke();
+        c.globalAlpha = blink;
+        c.strokeStyle = '#8fd07a'; c.lineWidth = 2.4;
+        c.beginPath(); c.arc(x, z, 6.5, 0, 6.283); c.stroke();
+        c.restore();
       }
-      c.beginPath(); c.arc(x, z, main ? 3 : 2.2, 0, 6.283);
-      c.fillStyle = main ? '#8fd07a' : '#ffffff'; c.fill();
+      c.beginPath(); c.arc(x, z, main ? 3.4 : 2.2, 0, 6.283);
+      c.fillStyle = main ? '#a8f08a' : '#ffffff'; c.fill();
       c.strokeStyle = 'rgba(20,12,6,.8)'; c.lineWidth = .8; c.stroke();
     });
+
+    // 主線人物姓名標籤（跟著閃爍）
+    if (mainNpc) {
+      const [x, z] = toMM(mainNpc.x, mainNpc.z);
+      const txt = '🎯 主線 ' + mainNpc.name;
+      c.save();
+      c.globalAlpha = blink;
+      c.font = 'bold 9px "PingFang TC","Microsoft JhengHei",sans-serif';
+      const tw = c.measureText(txt).width + 10;
+      let bx = x + 9, by = z - 17;
+      if (bx + tw > 198) bx = x - 9 - tw;
+      if (by < 2) by = z + 9;
+      c.fillStyle = 'rgba(18,48,14,.94)';
+      c.fillRect(bx, by, tw, 14);
+      c.strokeStyle = '#a8f08a'; c.lineWidth = 1;
+      c.strokeRect(bx + .5, by + .5, tw - 1, 13);
+      c.fillStyle = '#e8ffdc'; c.textAlign = 'left'; c.textBaseline = 'middle';
+      c.fillText(txt, bx + 5, by + 7.5);
+      c.restore();
+    }
+
+    // 小地圖下方的閃爍主線目標條
+    const mmMain = $('mm-main');
+    if (mmMain) {
+      if (mainNpc) {
+        const d = Math.round(Math.hypot(playerPos.x - mainNpc.x, playerPos.z - mainNpc.z));
+        const label = '🎯 主線：' + mainNpc.name + ' · ' + d + ' m';
+        if (mmMain.textContent !== label) mmMain.textContent = label;
+        mmMain.classList.remove('hidden');
+      } else {
+        mmMain.classList.add('hidden');
+      }
+    }
     // 玩家
     const [px, pz] = toMM(playerPos.x, playerPos.z);
     c.save();
@@ -1529,13 +1635,23 @@
     c.moveTo(0, -5); c.lineTo(3.4, 4); c.lineTo(0, 2); c.lineTo(-3.4, 4);
     c.closePath(); c.fill();
     c.restore();
-    // 邊框刻度
+    // 邊框刻度與四方位（上北下南、左西右東）
     c.strokeStyle = 'rgba(255,255,255,0.18)';
     c.lineWidth = 1;
     c.strokeRect(0.5, 0.5, 199, 199);
-    c.fillStyle = 'rgba(255,255,255,0.5)';
-    c.font = '9px sans-serif'; c.textAlign = 'center';
+    c.font = 'bold 10px sans-serif'; c.textAlign = 'center'; c.textBaseline = 'alphabetic';
+    c.fillStyle = 'rgba(255,255,255,.82)';
     c.fillText('北 ▲', 100, 12);
+    c.fillText('南', 100, 196);
+    c.fillText('西', 10, 104);
+    c.fillText('東', 190, 104);
+    // 季候風：右上角標出當前季節吹的風與方向
+    const w = this.windInfo();
+    c.save();
+    c.textAlign = 'right'; c.font = 'bold 9px sans-serif';
+    c.fillStyle = 'rgba(255,226,168,.95)';
+    c.fillText(w.arrow + ' ' + w.short + '（' + w.season + '）', 194, 23);
+    c.restore();
   };
 
   /* ---------------- 標題畫面 ---------------- */

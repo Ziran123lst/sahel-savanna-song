@@ -8,6 +8,16 @@
   const { SITES, NPCS, DIALOGUE, ACTS, PROBES, ENDINGS, INTERACTION_RADIUS, clamp, dist2, heightAt } = S;
 
   const siteById = id => SITES.find(s => s.id === id);
+  /* 小遊戲任務點：依活動性質放在對應地段，並與村民保持距離。
+   * 舊版一律放在南部農田 farm 內，和「耕田」的 F 鍵交互重疊，
+   * 導致畜牧季移／打水小遊戲永遠無法觸發。 */
+  const MINI_SPOT = {
+    graze: { site: 'camp',    dx: 18, dz: 10 },   // 營地旁的草原
+    water: { site: 'well',    dx: 16, dz: 12 },   // 水井旁
+    stone: { site: 'demo',    dx: 16, dz: -10 },  // 等高耕作耕地
+    tree:  { site: 'nursery', dx: 14, dz: 10 },   // 防風林
+    zai:   { site: 'farm',    dx: -6, dz: 12 }    // 自家田
+  };
   // NPCS 是 story.js 導出的純規格數組；NPCs（模塊）才有 .list（運行時實例）。
   // 優先取運行時 spec，NPC 尚未生成或列表為空時回退到靜態規格，
   // 保證對話資料永遠能取到（之前誤用 NPCS.list 會拋 TypeError）。
@@ -211,8 +221,9 @@
         this.markers.push(m);
       }
     } else if (st.k === 'mini') {
-      const owner = st.type === 'tree' ? siteById('farm') : siteById('farm');
-      const x = owner.x + (st.type === 'stone' ? 16 : -6), z = owner.z + (st.type === 'stone' ? -10 : 12);
+      const spot = MINI_SPOT[st.type] || MINI_SPOT.zai;
+      const owner = siteById(spot.site);
+      const x = owner.x + spot.dx, z = owner.z + spot.dz;
       const m = World.addMarker(x, z, 0xe8871e, 'generic');
       this.taskPoint = { x, z, type: st.type, need: st.n, marker: m };
       this.markers.push(m);
@@ -577,9 +588,17 @@
       if (p.done) continue;
       if (dist2(pos.x, pos.z, p.x, p.z) < 16) { this.investigate(p); return; }
     }
-    // 2) 任務要求的對話（優先於世界設施，確保劇情步驟能完成）
     const step = this.currentStep();
     const near = NPCs.nearest(pos, INTERACTION_RADIUS);
+    // 2) 當前主線小遊戲任務點：必須排在村民閒聊與世界設施之前。
+    //    舊版放在最後，任務點又落在南部農田內，按 F 會先被 tillField()
+    //    「耕田」攔截並 return，畜牧季移／打水小遊戲永遠打不開。
+    if (step && step.k === 'mini' && this.taskPoint && this.taskPoint.type !== 'goto' &&
+        dist2(pos.x, pos.z, this.taskPoint.x, this.taskPoint.z) < 72) {
+      this.runMini(this.taskPoint.type, this.taskPoint.need, () => { }, true);
+      return;
+    }
+    // 3) 任務要求的對話（優先於世界設施，確保劇情步驟能完成）
     if (step && step.k === 'talk') {
       const target = NPCs.get(step.npc);
       // 目標村民在交互半徑內時直接選它，避免被旁邊更近的人擠掉導致任務對話打不開
@@ -590,17 +609,17 @@
         return;
       }
     }
-    // 3) 普通 NPC 閒聊：必須排在世界設施之前，否則水井、水源地、防風林、本地市場
+    // 4) 普通 NPC 閒聊：必須排在世界設施之前，否則水井、水源地、防風林、本地市場
     //    區域裏的村民會被打水/賣糧攔住，按 F 永遠開不了口
     if (near) { this.talkTo(near.spec.id, 'start'); return; }
-    // 4) 世界設施（附近沒有村民時才生效）
+    // 5) 世界設施（附近沒有村民時才生效）
     const zone = S.zoneAt(pos.x, pos.z);
     if (zone && zone.id === 'well') { this.drawWater(90); return; }
     if (zone && zone.id === 'mare') { this.drawWater(70); return; }
     if (zone && zone.id === 'market') { UI.market(); return; }
     if (zone && zone.id === 'nursery') { this.getSeedlings(); return; }
     if (zone && (zone.id === 'farm' || zone.id === 'demo')) { this.tillField(); return; }
-    // 5) 任務點（小遊戲 / 到達點）
+    // 6) 任務點後備（非主線步驟時仍可用）
     if (this.taskPoint) {
       const tp = this.taskPoint;
       if (dist2(pos.x, pos.z, tp.x, tp.z) < 72) {
@@ -761,18 +780,22 @@
       this.triggerStorm(16);
     }
 
-    // 靠近提示
+    // 靠近提示：主線小遊戲任務點最優先，確保「顯示什麼」就「執行什麼」
     let prompt = null;
+    const stNow = this.currentStep();
+    const tp = this.taskPoint;
+    if (stNow && stNow.k === 'mini' && tp && tp.type !== 'goto' &&
+      dist2(Player.pos.x, Player.pos.z, tp.x, tp.z) < 72) {
+      prompt = {
+        zai: '開始覆蓋耕作', stone: '開始等高耕作', tree: '開始種植防風林',
+        graze: '開始畜牧季移', water: '開始為畜羣打水'
+      }[tp.type] || '開始主線活動';
+    }
     const n = NPCs.nearest(Player.pos, INTERACTION_RADIUS);
-    if (n) prompt = '與 ' + n.spec.name + ' 交談';
-    else {
+    if (!prompt && n) prompt = '與 ' + n.spec.name + ' 交談';
+    if (!prompt) {
       for (const p of this.probes) {
         if (!p.done && dist2(Player.pos.x, Player.pos.z, p.x, p.z) < 9) { prompt = '調查：' + p.data.title.slice(2); break; }
-      }
-      if (!prompt && this.taskPoint && this.taskPoint.type !== 'goto' &&
-        dist2(Player.pos.x, Player.pos.z, this.taskPoint.x, this.taskPoint.z) < 42) {
-        const t = { zai: '開始覆蓋耕作', stone: '開始等高耕作', tree: '開始種植防風林', graze: '開始畜牧季移', water: '打水' }[this.taskPoint.type];
-        prompt = t;
       }
       if (!prompt) {
         const st = this.currentStep();
